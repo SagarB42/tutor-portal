@@ -29,12 +29,13 @@ function InviteForm() {
   useEffect(() => {
     if (!token) { setInvalid("No invite token provided."); setLoading(false); return; }
 
-    supabase
-      .from("invitations")
-      .select("*")
-      .eq("token", token)
-      .single()
-      .then(({ data, error }) => {
+    Promise.resolve(
+      supabase
+        .from("invitations")
+        .select("*")
+        .eq("token", token)
+        .single()
+    ).then(({ data, error }) => {
         if (error || !data) {
           setInvalid("This invite link is invalid.");
         } else if (data.used_at) {
