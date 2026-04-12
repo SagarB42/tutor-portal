@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.985 0.002 247);
+  --color-foreground: oklch(0.13 0.028 261);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.13 0.028 261);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.13 0.028 261);
+  --color-primary: oklch(0.45 0.18 264);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.965 0.005 265);
+  --color-secondary-foreground: oklch(0.25 0.03 265);
+  --color-muted: oklch(0.965 0.005 265);
+  --color-muted-foreground: oklch(0.52 0.02 265);
+  --color-accent: oklch(0.955 0.01 265);
+  --color-accent-foreground: oklch(0.25 0.03 265);
+  --color-destructive: oklch(0.577 0.245 27.33);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-border: oklch(0.91 0.005 265);
+  --color-input: oklch(0.91 0.005 265);
+  --color-ring: oklch(0.55 0.18 264);
+  --radius: 0.75rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --animate-in: enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-out: exit 0.2s cubic-bezier(0.7, 0, 0.84, 0);
+
+  @keyframes enter {
+    from { opacity: 0; transform: scale(0.96) translateY(6px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes exit {
+    from { opacity: 1; transform: scale(1) translateY(0); }
+    to { opacity: 0; transform: scale(0.96) translateY(6px); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+* { @apply border-border; }
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
+/* Card hover lift effect */
+.card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-hover:hover {
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
+}
+
+/* Staggered fade-in for lists */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Gradient text utility */
+.text-gradient {
+  background: linear-gradient(135deg, oklch(0.45 0.18 264), oklch(0.55 0.22 280));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Better focus rings */
+:focus-visible {
+  outline: 2px solid oklch(0.55 0.18 264);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* Table row hover */
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* Smooth page transitions */
+main { animation: fade-in 0.3s ease-out; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(0.82 0.01 265); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(0.7 0.01 265); }
