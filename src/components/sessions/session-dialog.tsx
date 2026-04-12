@@ -217,7 +217,7 @@ export function SessionDialog({ onSuccess, initialData, trigger }: Props) {
                       placeholder="$/hr"
                     />
                     <span className="text-xs text-muted-foreground">/hr</span>
-                    <button type="button" onClick={() => removeStudent(s.id)} className="text-muted-foreground hover:text-destructive">
+                    <button type="button" onClick={() => removeStudent(s.id)} className="text-muted-foreground hover:text-destructive cursor-pointer">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -226,38 +226,43 @@ export function SessionDialog({ onSuccess, initialData, trigger }: Props) {
             )}
           </div>
 
-          {/* Tutor */}
+          {/* Tutor & Pay Rate */}
           <div className="space-y-3 border-b pb-4">
             <h4 className="text-sm font-semibold text-muted-foreground">Tutor</h4>
-            <Select value={tutorId} onValueChange={handleTutorChange}>
-              <SelectTrigger><SelectValue placeholder="Select tutor..." /></SelectTrigger>
-              <SelectContent>
-                {tutors.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.full_name} ({`$${t.pay_rate}/hr`})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {tutorId && (
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right text-sm">Pay Rate</Label>
-                <Input type="number" step="0.01" value={tutorPayRate} onChange={(e) => setTutorPayRate(e.target.value)} className="col-span-3" placeholder="$/hr" />
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm">Tutor</Label>
+                <Select value={tutorId} onValueChange={handleTutorChange}>
+                  <SelectTrigger><SelectValue placeholder="Select tutor..." /></SelectTrigger>
+                  <SelectContent>
+                    {tutors.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.full_name} ({`$${t.pay_rate}/hr`})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
+              {tutorId && (
+                <div className="space-y-1">
+                  <Label className="text-sm">Tutor Pay Rate ($/hr)</Label>
+                  <Input type="number" step="0.01" value={tutorPayRate} onChange={(e) => setTutorPayRate(e.target.value)} placeholder="$/hr" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Schedule */}
           <div className="space-y-3 border-b pb-4">
             <h4 className="text-sm font-semibold text-muted-foreground">Schedule</h4>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="col-span-3" required />
+            <div className="space-y-1">
+              <Label className="text-sm">Date *</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="space-y-1">
                 <Label className="text-sm">Start *</Label>
                 <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
               </div>
-              <div>
+              <div className="space-y-1">
                 <Label className="text-sm">End *</Label>
                 <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
               </div>
@@ -266,14 +271,15 @@ export function SessionDialog({ onSuccess, initialData, trigger }: Props) {
 
           {/* Details */}
           <div className="space-y-3">
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Topic *</Label>
-              <Input value={topic} onChange={(e) => setTopic(e.target.value)} className="col-span-3" required />
+            <h4 className="text-sm font-semibold text-muted-foreground">Details</h4>
+            <div className="space-y-1">
+              <Label className="text-sm">Topic *</Label>
+              <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Algebra Review" required />
             </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Status</Label>
+            <div className="space-y-1">
+              <Label className="text-sm">Status</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="scheduled">Scheduled</SelectItem>
@@ -283,12 +289,15 @@ export function SessionDialog({ onSuccess, initialData, trigger }: Props) {
               </Select>
             </div>
             {status.startsWith("cancelled") && (
-              <div className="grid grid-cols-4 items-center gap-3">
-                <Label className="text-right text-sm">Reason</Label>
-                <Input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} className="col-span-3" />
+              <div className="space-y-1">
+                <Label className="text-sm">Cancellation Reason</Label>
+                <Input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Why was the session cancelled?" />
               </div>
             )}
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Session notes..." />
+            <div className="space-y-1">
+              <Label className="text-sm">Notes</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Session notes..." rows={3} />
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">

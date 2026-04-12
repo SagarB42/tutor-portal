@@ -35,7 +35,7 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      // Ensure org exists
+      // Ensure org exists — if not, create from invitation data
       const { data: org } = await supabase
         .from("organizations")
         .select("id")
@@ -43,10 +43,24 @@ export default function LoginPage() {
         .single();
 
       if (!org) {
-        await supabase.from("organizations").insert({
-          name: "My Tutoring Business",
+        // Look up the invite to get the business name
+        const { data: invite } = await supabase
+          .from("invitations")
+          .select("id, business_name")
+          .eq("email", email.toLowerCase())
+          .single();
+
+        const { data: newOrg } = await supabase.from("organizations").insert({
+          name: invite?.business_name || "My Tutoring Business",
           owner_id: data.session.user.id,
-        });
+        }).select("id").single();
+
+        // Link invite to the new org
+        if (invite && newOrg) {
+          supabase.from("invitations").update({
+            organization_id: newOrg.id,
+          }).eq("id", invite.id).then();
+        }
       }
 
       router.replace("/dashboard");

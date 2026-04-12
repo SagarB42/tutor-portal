@@ -20,6 +20,7 @@ function InviteForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [invalid, setInvalid] = useState("");
 
   const [email, setEmail] = useState("");
@@ -64,7 +65,7 @@ function InviteForm() {
     setSubmitting(true);
 
     try {
-      // Sign up — with email confirmation off this also signs the user in
+      // Sign up only — do NOT auto-login
       const { data: authData, error: authErr } = await supabase.auth.signUp({
         email,
         password,
@@ -74,25 +75,16 @@ function InviteForm() {
 
       if (!authData.user) { setError("Sign up failed. Please try again."); setSubmitting(false); return; }
 
-      // Create organization for the new user
-      const { data: orgData, error: orgErr } = await supabase.from("organizations").insert({
-        name: invite.business_name,
-        owner_id: authData.user.id,
-      }).select("id").single();
+      // Sign out immediately so user must log in manually
+      // This avoids RLS issues — org will be created on first login
+      await supabase.auth.signOut();
 
-      if (orgErr && !orgErr.message.includes("duplicate")) {
-        setError("Account created but failed to set up organization: " + orgErr.message);
-        setSubmitting(false);
-        return;
-      }
-
-      // Mark invite as used and link to the new org (fire-and-forget)
+      // Mark invite as used (fire-and-forget)
       supabase.from("invitations").update({
         used_at: new Date().toISOString(),
-        organization_id: orgData?.id ?? null,
       }).eq("id", invite.id).then();
 
-      router.replace("/dashboard");
+      setSuccess(true);
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Please try again.");
       setSubmitting(false);
@@ -118,6 +110,26 @@ function InviteForm() {
               <p className="font-semibold text-lg">Invalid Invite</p>
               <p className="text-sm text-muted-foreground">{invalid}</p>
               <Button variant="outline" className="mt-4" onClick={() => router.push("/auth/login")}>
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
+  if (success) {
+    return (
+      <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50" />
+        <div className="relative w-full max-w-md">
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardContent className="pt-8 pb-8 text-center space-y-3">
+              <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+              <p className="font-semibold text-lg">Account Created!</p>
+              <p className="text-sm text-muted-foreground">Your account has been set up. Please log in to get started.</p>
+              <Button className="mt-4" onClick={() => router.push("/auth/login")}>
                 Go to Login
               </Button>
             </CardContent>

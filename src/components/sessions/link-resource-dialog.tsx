@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -45,12 +46,13 @@ export function LinkResourceDialog({ sessionId, studentIds, onSuccess }: Props) 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!resourceId) { alert("Select a resource."); return; }
+    if (!studentId) { alert("Select a student."); return; }
     setLoading(true);
 
     const { error } = await supabase.from("session_resources").insert({
       session_id: sessionId,
       resource_id: resourceId,
-      student_id: studentId || null,
+      student_id: studentId,
       notes: notes || null,
     });
 
@@ -67,28 +69,35 @@ export function LinkResourceDialog({ sessionId, studentIds, onSuccess }: Props) 
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Link Resource</DialogTitle>
-          <DialogDescription>Attach a resource to this session.</DialogDescription>
+          <DialogDescription>Attach a resource to a student in this session.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <Select value={resourceId} onValueChange={setResourceId}>
-            <SelectTrigger><SelectValue placeholder="Select resource..." /></SelectTrigger>
-            <SelectContent>
-              {resources.map((r) => (
-                <SelectItem key={r.id} value={r.id}>{r.title} ({r.subject})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {studentIds.length > 1 && (
+          <div className="space-y-1">
+            <Label className="text-sm">Resource *</Label>
+            <Select value={resourceId} onValueChange={setResourceId}>
+              <SelectTrigger><SelectValue placeholder="Select resource..." /></SelectTrigger>
+              <SelectContent>
+                {resources.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.title} ({r.subject})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Student *</Label>
             <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger><SelectValue placeholder="For which student? (optional)" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
               <SelectContent>
                 {students.map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          )}
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes..." />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes..." />
+          </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Link
