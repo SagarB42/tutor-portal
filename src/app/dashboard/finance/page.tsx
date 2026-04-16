@@ -37,26 +37,37 @@ type StudentAccount = {
   sessions: number;
 };
 
+type TutorAccount = {
+  id: string;
+  name: string;
+  owed: number;
+  sessions: number;
+  hours: number;
+};
+
 export default function FinancePage() {
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [studentAccounts, setStudentAccounts] = useState<StudentAccount[]>([]);
+  const [tutorAccounts, setTutorAccounts] = useState<TutorAccount[]>([]);
   const [totalBilled, setTotalBilled] = useState(0);
   const [totalTutorPay, setTotalTutorPay] = useState(0);
   const [accountSearch, setAccountSearch] = useState("");
+  const [tutorAccountSearch, setTutorAccountSearch] = useState("");
   const [paymentSearch, setPaymentSearch] = useState("");
   const [expenseSearch, setExpenseSearch] = useState("");
 
   const supabase = createClient();
 
   async function fetchData() {
-    const [paymentsRes, expensesRes, sessionStudentsRes, sessionsRes, studentsRes] = await Promise.all([
+    const [paymentsRes, expensesRes, sessionStudentsRes, sessionsRes, studentsRes, tutorsRes] = await Promise.all([
       supabase.from("payments").select("*, students(full_name)").order("payment_date", { ascending: false }),
       supabase.from("expenses").select("*").order("expense_date", { ascending: false }),
       supabase.from("session_students").select("student_id, rate, sessions(start_time, end_time, status)"),
-      supabase.from("sessions").select("id, start_time, end_time, status, tutor_pay_rate"),
+      supabase.from("sessions").select("id, start_time, end_time, status, tutor_pay_rate, tutor_id"),
       supabase.from("students").select("id, full_name"),
+      supabase.from("tutors").select("id, full_name"),
     ]);
 
     setPayments(paymentsRes.data || []);
@@ -98,14 +109,33 @@ export default function FinancePage() {
     const billed = Object.values(billedMap).reduce((sum, v) => sum + v.billed, 0);
     setTotalBilled(billed);
 
-    // Tutor pay
+    // Tutor pay & tutor accounts
     let tutorPay = 0;
+    const tutorPayMap: Record<string, { owed: number; sessions: number; hours: number }> = {};
     (sessionsRes.data || []).forEach((s: any) => {
       if (["completed", "cancelled_billable"].includes(s.status) && s.tutor_pay_rate) {
-        tutorPay += Number(s.tutor_pay_rate) * getSessionHours(s.start_time, s.end_time);
+        const hours = getSessionHours(s.start_time, s.end_time);
+        const pay = Number(s.tutor_pay_rate) * hours;
+        tutorPay += pay;
+        if (s.tutor_id) {
+          if (!tutorPayMap[s.tutor_id]) tutorPayMap[s.tutor_id] = { owed: 0, sessions: 0, hours: 0 };
+          tutorPayMap[s.tutor_id].owed += pay;
+          tutorPayMap[s.tutor_id].sessions += 1;
+          tutorPayMap[s.tutor_id].hours += hours;
+        }
       }
     });
     setTotalTutorPay(tutorPay);
+
+    const tutorNameMap = new Map((tutorsRes.data || []).map((t: any) => [t.id, t.full_name]));
+    const tAccounts: TutorAccount[] = Object.entries(tutorPayMap).map(([id, data]) => ({
+      id,
+      name: tutorNameMap.get(id) || "Unknown",
+      owed: data.owed,
+      sessions: data.sessions,
+      hours: data.hours,
+    })).sort((a, b) => b.owed - a.owed);
+    setTutorAccounts(tAccounts);
 
     setLoading(false);
   }
@@ -184,6 +214,7 @@ export default function FinancePage() {
       <Tabs defaultValue="accounts" className="space-y-4">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="accounts" className="flex-1 sm:flex-none">Student Accounts</TabsTrigger>
+          <TabsTrigger value="tutor-accounts" className="flex-1 sm:flex-none">Tutor Accounts</TabsTrigger>
           <TabsTrigger value="payments" className="flex-1 sm:flex-none">Payments</TabsTrigger>
           <TabsTrigger value="expenses" className="flex-1 sm:flex-none">Expenses</TabsTrigger>
         </TabsList>
@@ -248,6 +279,65 @@ export default function FinancePage() {
                                 {formatCurrency(a.balance)}
                               </span>
                             </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tutor Accounts */}
+        <TabsContent value="tutor-accounts">
+          <Card>
+            <CardContent className="p-0">
+              {tutorAccounts.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No tutor pay data yet. Log sessions with tutor pay rates to see accounts.</div>
+              ) : (
+                <>
+                  <div className="p-4 border-b">
+                    <div className="relative max-w-sm">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="Search tutors..." value={tutorAccountSearch} onChange={(e) => setTutorAccountSearch(e.target.value)} className="pl-9" />
+                    </div>
+                  </div>
+                  {/* Mobile */}
+                  <div className="md:hidden divide-y">
+                    {tutorAccounts.filter((a) => a.name.toLowerCase().includes(tutorAccountSearch.toLowerCase())).map((a) => (
+                      <div key={a.id} className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold">{a.name}</p>
+                            <p className="text-sm text-muted-foreground mt-0.5">{a.sessions} sessions · {a.hours.toFixed(1)} hrs</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-violet-600">{formatCurrency(a.owed)} owed</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop */}
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tutor</TableHead>
+                          <TableHead className="text-right">Sessions</TableHead>
+                          <TableHead className="text-right">Hours</TableHead>
+                          <TableHead className="text-right">Pay Owed</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {tutorAccounts.filter((a) => a.name.toLowerCase().includes(tutorAccountSearch.toLowerCase())).map((a) => (
+                          <TableRow key={a.id}>
+                            <TableCell className="font-medium">{a.name}</TableCell>
+                            <TableCell className="text-right">{a.sessions}</TableCell>
+                            <TableCell className="text-right">{a.hours.toFixed(1)}</TableCell>
+                            <TableCell className="text-right font-semibold text-violet-600">{formatCurrency(a.owed)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

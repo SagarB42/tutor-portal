@@ -102,7 +102,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        <div className="mt-auto p-6 border-t border-slate-700">
+        <div className="mt-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-slate-700">
           <Button
             variant="ghost"
             className="w-full justify-start text-red-300 hover:text-red-200 hover:bg-red-900/30"

@@ -23,10 +23,11 @@ CREATE TABLE IF NOT EXISTS public.students (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES public.organizations(id),
   full_name text NOT NULL,
-  email text NOT NULL,
-  phone text NOT NULL,
+  email text,
+  phone text,
   grade_level integer,
   default_rate numeric NOT NULL DEFAULT 0,
+  address text,
   parent_name text NOT NULL,
   parent_email text NOT NULL,
   parent_phone text NOT NULL,
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS public.students (
   alt_parent_email text,
   alt_parent_phone text,
   notes text,
+  archived_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
@@ -62,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.tutors (
   alt_emergency_phone text,
   is_owner boolean DEFAULT false,
   auth_user_id uuid REFERENCES auth.users(id),
+  archived_at timestamptz,
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE public.tutors ENABLE ROW LEVEL SECURITY;

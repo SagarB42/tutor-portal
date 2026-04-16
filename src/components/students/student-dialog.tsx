@@ -34,6 +34,7 @@ export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [defaultRate, setDefaultRate] = useState("");
   const [parentName, setParentName] = useState("");
@@ -49,6 +50,7 @@ export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
     setFullName(initialData.full_name || "");
     setEmail(initialData.email || "");
     setPhone(initialData.phone || "");
+    setAddress(initialData.address || "");
     setGradeLevel(initialData.grade_level?.toString() ?? "");
     setDefaultRate(initialData.default_rate?.toString() ?? "");
     setParentName(initialData.parent_name || "");
@@ -61,7 +63,7 @@ export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
   }
 
   function resetForm() {
-    setFullName(""); setEmail(""); setPhone(""); setGradeLevel(""); setDefaultRate("");
+    setFullName(""); setEmail(""); setPhone(""); setAddress(""); setGradeLevel(""); setDefaultRate("");
     setParentName(""); setParentEmail(""); setParentPhone("");
     setAltParentName(""); setAltParentEmail(""); setAltParentPhone("");
     setNotes("");
@@ -73,8 +75,9 @@ export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
 
     const payload = {
       full_name: fullName,
-      email,
-      phone,
+      email: email || null,
+      phone: phone || null,
+      address: address || null,
       grade_level: gradeLevel ? parseInt(gradeLevel) : null,
       default_rate: parseFloat(defaultRate) || 0,
       parent_name: parentName,
@@ -120,12 +123,16 @@ export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
               <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="col-span-3" required />
             </div>
             <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Email *</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" required />
+              <Label className="text-right text-sm">Email</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Phone *</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" required />
+              <Label className="text-right text-sm">Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-3">
+              <Label className="text-right text-sm">Address</Label>
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} className="col-span-3" placeholder="Street, suburb, postcode" />
             </div>
             <div className="grid grid-cols-4 items-center gap-3">
               <Label className="text-right text-sm">Grade</Label>

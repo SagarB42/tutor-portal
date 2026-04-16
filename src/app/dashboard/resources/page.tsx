@@ -29,7 +29,9 @@ export default function ResourcesPage() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm("Delete this resource?")) return;
+    if (!confirm("Delete this resource? It will be unlinked from all sessions.")) return;
+    // Remove from session_resources first (no ON DELETE CASCADE on resource_id)
+    await supabase.from("session_resources").delete().eq("resource_id", id);
     const { error } = await supabase.from("resources").delete().eq("id", id);
     if (error) alert("Error: " + error.message);
     else fetchResources();
