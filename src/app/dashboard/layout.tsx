@@ -6,7 +6,6 @@ import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { useAuth } from "@/lib/auth-context";
 import { createClient } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   Users,
@@ -79,9 +78,20 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="bg-slate-800/50 rounded-xl p-3 mb-6 border border-slate-700/50">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Business</p>
-            <p className="text-sm font-semibold truncate mt-0.5">{businessName}</p>
-            {user?.email && <p className="text-xs text-slate-400 mt-1 truncate">{user.email}</p>}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Business</p>
+                <p className="text-sm font-semibold truncate mt-0.5">{businessName}</p>
+                {user?.email && <p className="text-xs text-slate-400 mt-1 truncate">{user.email}</p>}
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-900/30 transition-colors shrink-0 mt-0.5"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <nav className="space-y-1">
@@ -102,25 +112,23 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        <div className="mt-auto p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-slate-700">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-300 hover:text-red-200 hover:bg-red-900/30"
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-3 h-4 w-4" />
-            Sign Out
-          </Button>
-        </div>
       </aside>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden bg-white/80 backdrop-blur-sm border-b px-4 py-3 flex items-center sticky top-0 z-20">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+        <header className="bg-white/80 backdrop-blur-sm border-b px-4 py-3 flex items-center sticky top-0 z-20">
+          <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors">
             <Menu className="h-5 w-5" />
           </button>
-          <span className="ml-3 font-semibold">{businessName}</span>
+          <span className="ml-3 md:ml-0 font-semibold flex-1 md:text-transparent md:select-none">{businessName}</span>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
         </header>
 
         <main className="flex-1 overflow-auto">
