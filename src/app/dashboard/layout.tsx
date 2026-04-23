@@ -1,153 +1,81 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { ProtectedRoute } from "@/components/protected-route";
-import { useAuth } from "@/lib/auth-context";
-import { createClient } from "@/lib/supabase";
+﻿import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { DashboardShell } from "@/components/dashboard-shell";
 import {
-  LayoutDashboard,
-  Users,
-  Briefcase,
-  Calendar,
-  DollarSign,
-  BookOpen,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+  listNotifications,
+  countUnreadNotifications,
+  sweepOverdueInvoices,
+} from "@/lib/queries/notifications";
 
-const navItems = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/students", label: "Students", icon: Users },
-  { href: "/dashboard/tutors", label: "Tutors", icon: Briefcase },
-  { href: "/dashboard/sessions", label: "Sessions", icon: Calendar },
-  { href: "/dashboard/finance", label: "Finance", icon: DollarSign },
-  { href: "/dashboard/resources", label: "Resources", icon: BookOpen },
-];
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user } = useAuth();
-  const supabase = createClient();
+  if (!user) {
+    redirect("/auth/login");
+  }
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [businessName, setBusinessName] = useState("My Business");
+  // Bootstrap / fetch the organization name in a single server roundtrip.
+  let businessName = "My Business";
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("owner_id", user.id)
+    .maybeSingle();
 
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase
+  if (org?.name) {
+    businessName = org.name;
+  } else {
+    // First login after invite: create the org server-side from the invitation record.
+    const { data: invite } = await supabase
+      .from("invitations")
+      .select("id, business_name")
+      .eq("email", (user.email ?? "").toLowerCase())
+      .maybeSingle();
+
+    const { data: newOrg } = await supabase
       .from("organizations")
-      .select("name")
-      .eq("owner_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data?.name) setBusinessName(data.name);
-      });
-  }, [user?.id]);
+      .insert({
+        name: invite?.business_name || "My Tutoring Business",
+        owner_id: user.id,
+      })
+      .select("id, name")
+      .single();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/auth/login");
-  };
-
-  const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+    if (newOrg?.name) businessName = newOrg.name;
+    if (invite && newOrg) {
+      await supabase
+        .from("invitations")
+        .update({ organization_id: newOrg.id })
+        .eq("id", invite.id);
+    }
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Sidebar */}
-      <aside
-        className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 flex-none bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white flex flex-col transition-transform duration-300 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0`}
-      >
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-500 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-500/25">
-                TP
-              </div>
-              <span className="font-bold text-lg tracking-tight">Tutor Portal</span>
-            </div>
-            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1 rounded hover:bg-slate-700">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div className="bg-slate-800/50 rounded-xl p-3 mb-6 border border-slate-700/50">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Business</p>
-                <p className="text-sm font-semibold truncate mt-0.5">{businessName}</p>
-                {user?.email && <p className="text-xs text-slate-400 mt-1 truncate">{user.email}</p>}
-              </div>
-              <button
-                onClick={handleLogout}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-900/30 transition-colors shrink-0 mt-0.5"
-                title="Sign out"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <nav className="space-y-1">
-            {navItems.map(({ href, label, icon: Icon }) => (
-              <Link key={href} href={href} onClick={() => setSidebarOpen(false)}>
-                <div
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                    isActive(href)
-                      ? "bg-blue-600/90 text-white shadow-md shadow-blue-600/20"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </div>
-              </Link>
-            ))}
-          </nav>
-        </div>
-
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white/80 backdrop-blur-sm border-b px-4 py-3 flex items-center sticky top-0 z-20">
-          <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors">
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="ml-3 md:ml-0 font-semibold flex-1 md:text-transparent md:select-none">{businessName}</span>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
-        </header>
-
-        <main className="flex-1 overflow-auto">
-          <div className="p-4 sm:p-6 md:p-10 max-w-7xl mx-auto">{children}</div>
-        </main>
-      </div>
-
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-    </div>
-  );
-}
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ProtectedRoute>
-      <DashboardShell>{children}</DashboardShell>
-    </ProtectedRoute>
+    <DashboardShell
+      userEmail={user.email ?? null}
+      businessName={businessName}
+      userId={user.id}
+      notifications={await (async () => {
+        try {
+          await sweepOverdueInvoices();
+        } catch {
+          /* swept failures are non-fatal */
+        }
+        const [items, unread] = await Promise.all([
+          listNotifications(30),
+          countUnreadNotifications(),
+        ]);
+        return { items, unread };
+      })()}
+    >
+      {children}
+    </DashboardShell>
   );
 }

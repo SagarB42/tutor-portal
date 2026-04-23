@@ -61,4 +61,16 @@ function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLPar
   return <DialogPrimitive.Description className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
-export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose };
+function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose };

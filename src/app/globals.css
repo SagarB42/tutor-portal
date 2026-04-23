@@ -1,25 +1,28 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: oklch(0.985 0.002 247);
-  --color-foreground: oklch(0.13 0.028 261);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.13 0.028 261);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.13 0.028 261);
-  --color-primary: oklch(0.45 0.18 264);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.965 0.005 265);
-  --color-secondary-foreground: oklch(0.25 0.03 265);
-  --color-muted: oklch(0.965 0.005 265);
-  --color-muted-foreground: oklch(0.52 0.02 265);
-  --color-accent: oklch(0.955 0.01 265);
-  --color-accent-foreground: oklch(0.25 0.03 265);
-  --color-destructive: oklch(0.577 0.245 27.33);
-  --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.91 0.005 265);
-  --color-input: oklch(0.91 0.005 265);
-  --color-ring: oklch(0.55 0.18 264);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --radius: 0.75rem;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
@@ -42,6 +45,50 @@
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
+}
+
+:root {
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.13 0.028 261);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0.028 261);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0.028 261);
+  --primary: oklch(0.45 0.18 264);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.965 0.005 265);
+  --secondary-foreground: oklch(0.25 0.03 265);
+  --muted: oklch(0.965 0.005 265);
+  --muted-foreground: oklch(0.52 0.02 265);
+  --accent: oklch(0.955 0.01 265);
+  --accent-foreground: oklch(0.25 0.03 265);
+  --destructive: oklch(0.577 0.245 27.33);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.91 0.005 265);
+  --input: oklch(0.91 0.005 265);
+  --ring: oklch(0.55 0.18 264);
+}
+
+.dark {
+  --background: oklch(0.14 0.015 265);
+  --foreground: oklch(0.97 0.005 265);
+  --card: oklch(0.185 0.015 265);
+  --card-foreground: oklch(0.97 0.005 265);
+  --popover: oklch(0.185 0.015 265);
+  --popover-foreground: oklch(0.97 0.005 265);
+  --primary: oklch(0.68 0.17 264);
+  --primary-foreground: oklch(0.13 0.028 261);
+  --secondary: oklch(0.24 0.015 265);
+  --secondary-foreground: oklch(0.97 0.005 265);
+  --muted: oklch(0.22 0.012 265);
+  --muted-foreground: oklch(0.66 0.018 265);
+  --accent: oklch(0.27 0.02 265);
+  --accent-foreground: oklch(0.97 0.005 265);
+  --destructive: oklch(0.62 0.22 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.27 0.015 265);
+  --input: oklch(0.27 0.015 265);
+  --ring: oklch(0.68 0.17 264);
 }
 
 * { @apply border-border; }
@@ -72,17 +119,29 @@ html { scroll-behavior: smooth; }
 
 /* Gradient text utility */
 .text-gradient {
-  background: linear-gradient(135deg, oklch(0.45 0.18 264), oklch(0.55 0.22 280));
+  background: linear-gradient(135deg, oklch(0.55 0.2 264), oklch(0.65 0.22 280));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Better focus rings */
+/* Better focus rings — skip form fields (they manage their own focus styles) */
 :focus-visible {
   outline: 2px solid oklch(0.55 0.18 264);
   outline-offset: 2px;
   border-radius: var(--radius);
+}
+
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible,
+[cmdk-input]:focus,
+[cmdk-input]:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
 }
 
 /* Table row hover */

@@ -1,109 +1,118 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
+import { Loader2, Paperclip } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Paperclip, Loader2 } from "lucide-react";
+import { Form } from "@/components/ui/form";
+import {
+  SelectField,
+  TextareaField,
+} from "@/components/shared/form-fields";
+import { useActionForm } from "@/hooks/use-action-form";
+import { linkResourceToSession } from "@/lib/actions/sessions";
+import { sessionResourceSchema } from "@/lib/schemas";
+
+type ResourceOption = { id: string; title: string; subject: string };
+type StudentOption = { id: string; full_name: string };
 
 type Props = {
   sessionId: string;
-  studentIds: string[];
-  onSuccess?: () => void;
+  resources: ResourceOption[];
+  sessionStudents: StudentOption[];
 };
 
-export function LinkResourceDialog({ sessionId, studentIds, onSuccess }: Props) {
-  const supabase = createClient();
+export function LinkResourceDialog({
+  sessionId,
+  resources,
+  sessionStudents,
+}: Props) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [resources, setResources] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
 
-  const [resourceId, setResourceId] = useState("");
-  const [studentId, setStudentId] = useState("");
-  const [notes, setNotes] = useState("");
+  const defaultValues = {
+    session_id: sessionId,
+    resource_id: "",
+    student_id: "",
+    notes: "",
+  };
 
-  useEffect(() => {
-    if (!open) return;
-    async function load() {
-      const [rRes, sRes] = await Promise.all([
-        supabase.from("resources").select("id, title, subject").order("title"),
-        supabase.from("students").select("id, full_name").in("id", studentIds),
-      ]);
-      setResources(rRes.data || []);
-      setStudents(sRes.data || []);
-    }
-    load();
-  }, [open]);
+  const { form, onSubmit, pending } = useActionForm({
+    schema: sessionResourceSchema,
+    action: linkResourceToSession,
+    defaultValues,
+    successMessage: "Resource linked",
+    onSuccess: () => {
+      setOpen(false);
+      form.reset(defaultValues);
+    },
+  });
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!resourceId) { alert("Select a resource."); return; }
-    if (!studentId) { alert("Select a student."); return; }
-    setLoading(true);
+  const resourceOptions = resources.map((r) => ({
+    value: r.id,
+    label: `${r.title} (${r.subject})`,
+  }));
+  const studentOptions = sessionStudents.map((s) => ({
+    value: s.id,
+    label: s.full_name,
+  }));
 
-    const { error } = await supabase.from("session_resources").insert({
-      session_id: sessionId,
-      resource_id: resourceId,
-      student_id: studentId,
-      notes: notes || null,
-    });
-
-    if (error) alert("Error: " + error.message);
-    else { setOpen(false); setResourceId(""); setStudentId(""); setNotes(""); onSuccess?.(); }
-    setLoading(false);
-  }
+  const disabled = sessionStudents.length === 0 || resources.length === 0;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) form.reset(defaultValues);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm"><Paperclip className="mr-2 h-4 w-4" /> Link Resource</Button>
+        <Button variant="outline" size="sm" disabled={disabled}>
+          <Paperclip className="mr-2 h-4 w-4" /> Link Resource
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>Link Resource</DialogTitle>
-          <DialogDescription>Attach a resource to a student in this session.</DialogDescription>
+          <DialogDescription>
+            Attach a resource to a student in this session.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <div className="space-y-1">
-            <Label className="text-sm">Resource *</Label>
-            <Select value={resourceId} onValueChange={setResourceId}>
-              <SelectTrigger><SelectValue placeholder="Select resource..." /></SelectTrigger>
-              <SelectContent>
-                {resources.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>{r.title} ({r.subject})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Student *</Label>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger><SelectValue placeholder="Select student..." /></SelectTrigger>
-              <SelectContent>
-                {students.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes..." />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Link
-            </Button>
-          </div>
-        </form>
+
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="grid gap-4 py-2">
+            <SelectField
+              name="resource_id"
+              label="Resource"
+              required
+              placeholder="Select resource..."
+              options={resourceOptions}
+            />
+            <SelectField
+              name="student_id"
+              label="Student"
+              required
+              placeholder="Select student..."
+              options={studentOptions}
+            />
+            <TextareaField name="notes" label="Notes" placeholder="Notes..." />
+
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Link
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

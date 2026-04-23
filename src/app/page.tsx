@@ -1,23 +1,11 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
-import { Loader2 } from "lucide-react";
+export default async function HomePage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function HomePage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading) {
-      router.replace(user ? "/dashboard" : "/auth/login");
-    }
-  }, [user, loading, router]);
-
-  return (
-    <main className="min-h-screen flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-    </main>
-  );
+  redirect(user ? "/dashboard" : "/auth/login");
 }

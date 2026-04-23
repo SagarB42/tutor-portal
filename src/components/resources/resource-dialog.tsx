@@ -1,105 +1,116 @@
 "use client";
 
+import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Loader2 } from "lucide-react";
+import { Form } from "@/components/ui/form";
+import { TextField, TextareaField } from "@/components/shared/form-fields";
+import { useActionForm } from "@/hooks/use-action-form";
+import { createResource, updateResource } from "@/lib/actions/resources";
+import { resourceSchema, type ResourceInput } from "@/lib/schemas";
+
+type ResourceRow = ResourceInput & { id: string };
 
 type Props = {
-  onSuccess?: () => void;
-  initialData?: any;
+  initialData?: ResourceRow | null;
   trigger?: React.ReactNode;
 };
 
-export function ResourceDialog({ onSuccess, initialData, trigger }: Props) {
+const emptyDefaults = {
+  title: "",
+  subject: "",
+  grade_level: "",
+  url: "",
+  notes: "",
+};
+
+function toFormValues(row: ResourceRow | null | undefined) {
+  if (!row) return emptyDefaults;
+  return {
+    title: row.title ?? "",
+    subject: row.subject ?? "",
+    grade_level: row.grade_level == null ? "" : String(row.grade_level),
+    url: row.url ?? "",
+    notes: row.notes ?? "",
+  };
+}
+
+export function ResourceDialog({ initialData, trigger }: Props) {
   const isEdit = !!initialData;
-  const { organizationId } = useAuth();
-  const supabase = createClient();
-
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [title, setTitle] = useState("");
-  const [subject, setSubject] = useState("");
-  const [gradeLevel, setGradeLevel] = useState("");
-  const [url, setUrl] = useState("");
-  const [notes, setNotes] = useState("");
 
-  function prefill() {
-    if (!initialData) return;
-    setTitle(initialData.title || "");
-    setSubject(initialData.subject || "");
-    setGradeLevel(initialData.grade_level?.toString() ?? "");
-    setUrl(initialData.url || "");
-    setNotes(initialData.notes || "");
-  }
-
-  function resetForm() {
-    setTitle(""); setSubject(""); setGradeLevel(""); setUrl(""); setNotes("");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const payload = {
-      title,
-      subject,
-      grade_level: gradeLevel ? parseInt(gradeLevel) : null,
-      url,
-      notes: notes || null,
-    };
-
-    const { error } = isEdit
-      ? await supabase.from("resources").update(payload).eq("id", initialData.id)
-      : await supabase.from("resources").insert({ ...payload, organization_id: organizationId });
-
-    if (error) alert("Error: " + error.message);
-    else { setOpen(false); if (!isEdit) resetForm(); onSuccess?.(); }
-    setLoading(false);
-  }
+  const { form, onSubmit, pending } = useActionForm({
+    schema: resourceSchema,
+    action: isEdit
+      ? (values) => updateResource(initialData.id, values)
+      : createResource,
+    defaultValues: toFormValues(initialData),
+    successMessage: isEdit ? "Resource updated" : "Resource added",
+    onSuccess: () => {
+      setOpen(false);
+      if (!isEdit) form.reset(emptyDefaults);
+    },
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) prefill(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) form.reset(toFormValues(initialData));
+      }}
+    >
       <DialogTrigger asChild>
-        {trigger || <Button><Plus className="mr-2 h-4 w-4" /> Add Resource</Button>}
+        {trigger || (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Add Resource
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Resource" : "Add Resource"}</DialogTitle>
-          <DialogDescription>{isEdit ? "Update resource details." : "Add a learning resource."}</DialogDescription>
+          <DialogDescription>
+            {isEdit ? "Update resource details." : "Add a learning resource."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right text-sm">Title *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="col-span-3" required />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right text-sm">Subject *</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="col-span-3" required />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right text-sm">Grade</Label>
-            <Input type="number" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-3">
-            <Label className="text-right text-sm">URL *</Label>
-            <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} className="col-span-3" required />
-          </div>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes..." />
-          <div className="flex justify-end">
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEdit ? "Update" : "Save"}
-            </Button>
-          </div>
-        </form>
+
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="grid gap-4 py-2">
+            <TextField name="title" label="Title" required />
+            <TextField name="subject" label="Subject" required />
+            <TextField
+              name="grade_level"
+              label="Grade"
+              type="number"
+              placeholder="e.g. 10"
+            />
+            <TextField
+              name="url"
+              label="URL"
+              required
+              type="url"
+              placeholder="https://..."
+            />
+            <TextareaField name="notes" label="Notes" />
+
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEdit ? "Update" : "Save"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

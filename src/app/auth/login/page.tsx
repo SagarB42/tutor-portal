@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, GraduationCap, Mail, Lock } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const supabase = createClient();
 
@@ -35,35 +36,13 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      // Ensure org exists — if not, create from invitation data
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("owner_id", data.session.user.id)
-        .single();
-
-      if (!org) {
-        // Look up the invite to get the business name
-        const { data: invite } = await supabase
-          .from("invitations")
-          .select("id, business_name")
-          .eq("email", email.toLowerCase())
-          .single();
-
-        const { data: newOrg } = await supabase.from("organizations").insert({
-          name: invite?.business_name || "My Tutoring Business",
-          owner_id: data.session.user.id,
-        }).select("id").single();
-
-        // Link invite to the new org
-        if (invite && newOrg) {
-          supabase.from("invitations").update({
-            organization_id: newOrg.id,
-          }).eq("id", invite.id).then();
-        }
-      }
-
-      router.replace("/dashboard");
+      // Server-side dashboard layout will bootstrap the organization on first
+      // visit. Just navigate — middleware guarantees the session cookie is
+      // set before the RSC runs.
+      const next = searchParams.get("next") || "/dashboard";
+      router.replace(next);
+      router.refresh();
+      return;
     }
     setLoading(false);
   }
@@ -130,5 +109,19 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

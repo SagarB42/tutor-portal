@@ -1,42 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, GraduationCap, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Suspense } from "react";
+import type { InvitationRow } from "@/lib/db-types";
 
 function InviteForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  const [invite, setInvite] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [invite, setInvite] = useState<InvitationRow | null>(null);
+  const [loading, setLoading] = useState<boolean>(Boolean(token));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [invalid, setInvalid] = useState("");
+  const [invalid, setInvalid] = useState<string>(
+    token ? "" : "No invite token provided.",
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    if (!token) { setInvalid("No invite token provided."); setLoading(false); return; }
+    if (!token) return;
+    let cancelled = false;
 
     Promise.resolve(
       supabase
         .from("invitations")
         .select("*")
         .eq("token", token)
-        .single()
-    ).then(({ data, error }) => {
+        .single(),
+    )
+      .then(({ data, error }) => {
+        if (cancelled) return;
         if (error || !data) {
           setInvalid("This invite link is invalid.");
         } else if (data.used_at) {
@@ -44,16 +50,21 @@ function InviteForm() {
         } else if (new Date(data.expires_at) < new Date()) {
           setInvalid("This invite has expired. Please ask for a new link.");
         } else {
-          setInvite(data);
+          setInvite(data as InvitationRow);
           setEmail(data.email);
         }
         setLoading(false);
       })
       .catch(() => {
+        if (cancelled) return;
         setInvalid("Unable to verify invite. Please try again.");
         setLoading(false);
       });
-  }, [token]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, supabase]);
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
@@ -80,13 +91,16 @@ function InviteForm() {
       await supabase.auth.signOut();
 
       // Mark invite as used (fire-and-forget)
-      supabase.from("invitations").update({
-        used_at: new Date().toISOString(),
-      }).eq("id", invite.id).then();
+      if (invite) {
+        void supabase.from("invitations").update({
+          used_at: new Date().toISOString(),
+        }).eq("id", invite.id);
+      }
 
       setSuccess(true);
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(message);
       setSubmitting(false);
     }
   }
@@ -136,6 +150,14 @@ function InviteForm() {
           </Card>
         </div>
       </main>
+    );
+  }
+
+  if (!invite) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 

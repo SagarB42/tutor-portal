@@ -1,312 +1,510 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth-context";
+import { format } from "date-fns";
+import { Loader2, Plus, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog";
-import { Plus, Loader2, X } from "lucide-react";
-import { format } from "date-fns";
+  SelectField,
+  TextField,
+  TextareaField,
+} from "@/components/shared/form-fields";
+import { useActionForm } from "@/hooks/use-action-form";
+import {
+  createRecurringSessions,
+  createSession,
+  updateSession,
+} from "@/lib/actions/sessions";
+import { sessionSchema, type SessionInput } from "@/lib/schemas";
 
-type StudentEntry = { id: string; name: string; rate: string };
+export type SessionStudentOption = {
+  id: string;
+  full_name: string;
+  default_rate: number | null;
+  archived_at: string | null;
+};
+
+export type SessionTutorOption = {
+  id: string;
+  full_name: string;
+  pay_rate: number | null;
+  archived_at: string | null;
+};
+
+export type SessionInitialData = {
+  id: string;
+  tutor_id: string | null;
+  start_time: string;
+  end_time: string;
+  topic: string;
+  status: SessionInput["status"];
+  notes: string | null;
+  cancellation_reason: string | null;
+  tutor_pay_rate: number | null;
+  session_students?: Array<{
+    student_id: string;
+    rate: number;
+    students?: {
+      id: string;
+      full_name: string;
+      default_rate?: number | null;
+      archived_at?: string | null;
+    } | null;
+  }> | null;
+};
 
 type Props = {
-  onSuccess?: () => void;
-  initialData?: any;
+  students: SessionStudentOption[];
+  tutors: SessionTutorOption[];
+  initialData?: SessionInitialData | null;
   trigger?: React.ReactNode;
 };
 
-export function SessionDialog({ onSuccess, initialData, trigger }: Props) {
+/** Format an ISO/date string for a `datetime-local` input (local time, no TZ). */
+function toLocalInput(iso: string | null | undefined) {
+  if (!iso) return "";
+  return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
+}
+
+function fromLocalInput(v: string) {
+  return new Date(v).toISOString();
+}
+
+function makeDefaults(initialData: SessionInitialData | null | undefined) {
+  if (!initialData) {
+    return {
+      tutor_id: "",
+      start_time: "",
+      end_time: "",
+      topic: "",
+      status: "completed" as const,
+      notes: "",
+      cancellation_reason: "",
+      tutor_pay_rate: "",
+      students: [] as Array<{ student_id: string; rate: string }>,
+    };
+  }
+  return {
+    tutor_id: initialData.tutor_id ?? "",
+    start_time: toLocalInput(initialData.start_time),
+    end_time: toLocalInput(initialData.end_time),
+    topic: initialData.topic ?? "",
+    status: initialData.status ?? ("completed" as const),
+    notes: initialData.notes ?? "",
+    cancellation_reason: initialData.cancellation_reason ?? "",
+    tutor_pay_rate:
+      initialData.tutor_pay_rate == null
+        ? ""
+        : String(initialData.tutor_pay_rate),
+    students: (initialData.session_students ?? []).map((ss) => ({
+      student_id: ss.student_id,
+      rate: String(ss.rate),
+    })),
+  };
+}
+
+export function SessionDialog({
+  students,
+  tutors,
+  initialData,
+  trigger,
+}: Props) {
   const isEdit = !!initialData;
-  const { organizationId } = useAuth();
-  const supabase = createClient();
-
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [students, setStudents] = useState<any[]>([]);
-  const [tutors, setTutors] = useState<any[]>([]);
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [repeatFrequency, setRepeatFrequency] = useState<
+    "weekly" | "fortnightly" | "monthly"
+  >("weekly");
+  const [repeatOccurrences, setRepeatOccurrences] = useState("4");
 
-  const [selectedStudents, setSelectedStudents] = useState<StudentEntry[]>([]);
-  const [tutorId, setTutorId] = useState("");
-  const [status, setStatus] = useState("completed");
-  const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [topic, setTopic] = useState("");
-  const [notes, setNotes] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
-  const [tutorPayRate, setTutorPayRate] = useState("");
+  // Merge in any archived students/tutors referenced by this session so they
+  // render even though the RSC page only sends active rows.
+  const mergedStudents = useMemo<SessionStudentOption[]>(() => {
+    if (!initialData?.session_students) return students;
+    const archived = initialData.session_students
+      .map((ss) => ss.students)
+      .filter((s): s is NonNullable<typeof s> => !!s && !!s.archived_at)
+      .map((s) => ({
+        id: s.id,
+        full_name: s.full_name,
+        default_rate: s.default_rate ?? null,
+        archived_at: s.archived_at ?? null,
+      }));
+    const existing = new Set(students.map((s) => s.id));
+    return [...students, ...archived.filter((s) => !existing.has(s.id))];
+  }, [students, initialData]);
 
-  useEffect(() => {
-    if (!open) return;
-    async function load() {
-      const [sRes, tRes] = await Promise.all([
-        supabase.from("students").select("id, full_name, default_rate").order("full_name"),
-        supabase.from("tutors").select("id, full_name, pay_rate").order("full_name"),
-      ]);
-      setStudents(sRes.data || []);
-      setTutors(tRes.data || []);
+  const mergedTutors = useMemo<SessionTutorOption[]>(() => {
+    if (!initialData?.tutor_id) return tutors;
+    const isPresent = tutors.some((t) => t.id === initialData.tutor_id);
+    if (isPresent) return tutors;
+    // If the archived tutor row didn't come through props, fall back to a stub.
+    return [
+      ...tutors,
+      {
+        id: initialData.tutor_id,
+        full_name: "(archived tutor)",
+        pay_rate: null,
+        archived_at: new Date().toISOString(),
+      },
+    ];
+  }, [tutors, initialData]);
 
-      // If editing, load session_students
-      if (initialData) {
-        const { data: ssData } = await supabase
-          .from("session_students")
-          .select("student_id, rate, students(full_name)")
-          .eq("session_id", initialData.id);
-        const entries: StudentEntry[] = (ssData || []).map((ss: any) => ({
-          id: ss.student_id,
-          name: ss.students?.full_name || "",
-          rate: String(ss.rate),
-        }));
-        setSelectedStudents(entries);
+  const studentLookup = useMemo(
+    () => new Map(mergedStudents.map((s) => [s.id, s])),
+    [mergedStudents],
+  );
+
+  const { form, onSubmit, pending } = useActionForm({
+    schema: sessionSchema,
+    action: async (values) => {
+      const payload: SessionInput = {
+        ...values,
+        start_time: fromLocalInput(values.start_time),
+        end_time: fromLocalInput(values.end_time),
+      };
+      if (isEdit) return updateSession(initialData.id, payload);
+      if (repeatEnabled) {
+        const occ = Number(repeatOccurrences);
+        if (!Number.isFinite(occ) || occ < 2 || occ > 52) {
+          return { ok: false as const, error: "Occurrences must be 2-52" };
+        }
+        const res = await createRecurringSessions(payload, {
+          frequency: repeatFrequency,
+          occurrences: occ,
+        });
+        if (!res.ok) return res;
+        return { ok: true as const, data: { id: res.data.series_id } };
       }
-    }
-    load();
-  }, [open]);
+      return createSession(payload);
+    },
+    defaultValues: makeDefaults(initialData),
+    successMessage: isEdit
+      ? "Session updated"
+      : repeatEnabled
+        ? "Recurring sessions created"
+        : "Session logged",
+    onSuccess: () => {
+      setOpen(false);
+      if (!isEdit) {
+        form.reset(makeDefaults(null));
+        setRepeatEnabled(false);
+      }
+    },
+  });
 
-  function prefill() {
-    if (!initialData) return;
-    const start = new Date(initialData.start_time);
-    const end = new Date(initialData.end_time);
-    setDate(format(start, "yyyy-MM-dd"));
-    setStartTime(format(start, "HH:mm"));
-    setEndTime(format(end, "HH:mm"));
-    setTopic(initialData.topic || "");
-    setNotes(initialData.notes || "");
-    setStatus(initialData.status || "completed");
-    setCancelReason(initialData.cancellation_reason || "");
-    setTutorId(initialData.tutor_id || "");
-    setTutorPayRate(initialData.tutor_pay_rate?.toString() ?? "");
-  }
+  const studentsArray = useFieldArray({
+    control: form.control,
+    name: "students",
+  });
 
-  function addStudent(id: string) {
-    if (!id || selectedStudents.some((s) => s.id === id)) return;
-    const student = students.find((s) => s.id === id);
-    if (!student) return;
-    setSelectedStudents([
-      ...selectedStudents,
-      { id, name: student.full_name, rate: String(student.default_rate || 0) },
-    ]);
-  }
+  const watchedStudents = form.watch("students") ?? [];
+  const watchedStatus = form.watch("status");
+  const isCancelled = watchedStatus?.startsWith("cancelled");
 
-  function removeStudent(id: string) {
-    setSelectedStudents(selectedStudents.filter((s) => s.id !== id));
-  }
-
-  function updateRate(id: string, rate: string) {
-    setSelectedStudents(selectedStudents.map((s) => (s.id === id ? { ...s, rate } : s)));
+  function addStudent(studentId: string) {
+    if (!studentId) return;
+    if (watchedStudents.some((s) => s.student_id === studentId)) return;
+    const s = studentLookup.get(studentId);
+    studentsArray.append({
+      student_id: studentId,
+      rate: s?.default_rate == null ? "" : String(s.default_rate),
+    });
   }
 
   function handleTutorChange(id: string) {
-    setTutorId(id);
+    form.setValue("tutor_id", id);
     if (!isEdit) {
-      const tutor = tutors.find((t) => t.id === id);
-      if (tutor?.pay_rate) setTutorPayRate(String(tutor.pay_rate));
+      const tutor = mergedTutors.find((t) => t.id === id);
+      if (tutor?.pay_rate != null) {
+        form.setValue("tutor_pay_rate", String(tutor.pay_rate));
+      }
     }
   }
 
-  function resetForm() {
-    setSelectedStudents([]); setTutorId(""); setStatus("completed");
-    setDate(""); setStartTime(""); setEndTime(""); setTopic("");
-    setNotes(""); setCancelReason(""); setTutorPayRate("");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (selectedStudents.length === 0) { alert("Select at least one student."); return; }
-
-    const startDT = new Date(`${date}T${startTime}`);
-    const endDT = new Date(`${date}T${endTime}`);
-    if (endDT <= startDT) { alert("End time must be after start time."); return; }
-
-    setLoading(true);
-    const isCancelled = status.startsWith("cancelled");
-
-    const payload = {
-      tutor_id: tutorId || null,
-      start_time: startDT.toISOString(),
-      end_time: endDT.toISOString(),
-      topic: isCancelled ? (topic || "Cancelled session") : topic,
-      notes: notes || null,
-      status,
-      cancellation_reason: isCancelled ? cancelReason : null,
-      tutor_pay_rate: tutorPayRate ? parseFloat(tutorPayRate) : null,
-    };
-
-    if (isEdit) {
-      const { error } = await supabase.from("sessions").update(payload).eq("id", initialData.id);
-      if (error) { alert("Error: " + error.message); setLoading(false); return; }
-
-      // Replace session_students
-      const { error: delErr } = await supabase.from("session_students").delete().eq("session_id", initialData.id);
-      if (delErr) { alert("Error clearing students: " + delErr.message); setLoading(false); return; }
-      const junctionRows = selectedStudents.map((s) => ({
-        session_id: initialData.id,
-        student_id: s.id,
-        rate: parseFloat(s.rate) || 0,
-      }));
-      const { error: jErr } = await supabase.from("session_students").insert(junctionRows);
-      if (jErr) { alert("Error saving students: " + jErr.message); setLoading(false); return; }
-    } else {
-      const { data: session, error: sessionErr } = await supabase.from("sessions").insert({
-        ...payload,
-        organization_id: organizationId,
-      }).select("id").single();
-
-      if (sessionErr) { alert("Error: " + sessionErr.message); setLoading(false); return; }
-
-      const junctionRows = selectedStudents.map((s) => ({
-        session_id: session.id,
-        student_id: s.id,
-        rate: parseFloat(s.rate) || 0,
-      }));
-      const { error: jErr } = await supabase.from("session_students").insert(junctionRows);
-      if (jErr) { alert("Error saving students: " + jErr.message); setLoading(false); return; }
-    }
-
-    setLoading(false);
-    setOpen(false);
-    if (!isEdit) resetForm();
-    onSuccess?.();
-  }
+  const statusOptions = [
+    { value: "completed", label: "Completed" },
+    { value: "scheduled", label: "Scheduled" },
+    { value: "cancelled_billable", label: "Cancelled (Billable)" },
+    { value: "cancelled_free", label: "Cancelled (Free)" },
+  ];
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) prefill(); else if (!isEdit) resetForm(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) form.reset(makeDefaults(initialData));
+      }}
+    >
       <DialogTrigger asChild>
-        {trigger || <Button><Plus className="mr-2 h-4 w-4" /> Log Session</Button>}
+        {trigger || (
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Log Session
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Session" : "Log Session"}</DialogTitle>
-          <DialogDescription>{isEdit ? "Update session details." : "Record a completed session or schedule a future one."}</DialogDescription>
+          <DialogDescription>
+            {isEdit
+              ? "Update session details."
+              : "Record a completed session or schedule a future one."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          {/* Students */}
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Students</h4>
-            <Select onValueChange={addStudent}>
-              <SelectTrigger><SelectValue placeholder="Add a student..." /></SelectTrigger>
-              <SelectContent>
-                {students
-                  .filter((s) => !selectedStudents.some((ss) => ss.id === s.id))
-                  .map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.full_name} ({`$${s.default_rate}/hr`})</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {selectedStudents.length > 0 && (
-              <div className="space-y-2">
-                {selectedStudents.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 bg-muted/50 rounded-md p-2">
-                    <span className="flex-1 text-sm font-medium">{s.name}</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={s.rate}
-                      onChange={(e) => updateRate(s.id, e.target.value)}
-                      className="w-24 h-8 text-sm"
-                      placeholder="$/hr"
-                    />
-                    <span className="text-xs text-muted-foreground">/hr</span>
-                    <button type="button" onClick={() => removeStudent(s.id)} className="text-muted-foreground hover:text-destructive cursor-pointer">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Tutor & Pay Rate */}
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Tutor</h4>
-            <div className="grid gap-3">
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="grid gap-4 py-2">
+            {/* Students */}
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Students <span className="text-destructive">*</span>
+              </h4>
+              <Select onValueChange={addStudent} value="">
+                <SelectTrigger>
+                  <SelectValue placeholder="Add a student..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {mergedStudents
+                    .filter(
+                      (s) =>
+                        !watchedStudents.some((ws) => ws.student_id === s.id) &&
+                        !s.archived_at,
+                    )
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.full_name}
+                        {s.default_rate != null && ` ($${s.default_rate}/hr)`}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {studentsArray.fields.length > 0 && (
+                <div className="space-y-2">
+                  {studentsArray.fields.map((field, index) => {
+                    const studentId = watchedStudents[index]?.student_id;
+                    const student = studentId
+                      ? studentLookup.get(studentId)
+                      : undefined;
+                    return (
+                      <div
+                        key={field.id}
+                        className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
+                      >
+                        <span className="flex-1 truncate text-sm font-medium">
+                          {student?.full_name ?? "Unknown"}
+                          {student?.archived_at && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              (archived)
+                            </span>
+                          )}
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-8 w-24 text-sm"
+                          placeholder="$/hr"
+                          {...form.register(`students.${index}.rate`)}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          /hr
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => studentsArray.remove(index)}
+                          className="cursor-pointer text-muted-foreground hover:text-destructive"
+                          aria-label="Remove student"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {form.formState.errors.students && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.students.message ??
+                    form.formState.errors.students.root?.message ??
+                    "Select at least one student with a positive rate."}
+                </p>
+              )}
+            </section>
+
+            {/* Tutor */}
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Tutor
+              </h4>
               <div className="space-y-1">
-                <Label className="text-sm">Tutor</Label>
-                <Select value={tutorId} onValueChange={handleTutorChange}>
-                  <SelectTrigger><SelectValue placeholder="Select tutor..." /></SelectTrigger>
+                <Label className="text-sm">
+                  Tutor <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={form.watch("tutor_id") ?? ""}
+                  onValueChange={handleTutorChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select tutor..." />
+                  </SelectTrigger>
                   <SelectContent>
-                    {tutors.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.full_name} ({`$${t.pay_rate}/hr`})</SelectItem>
+                    {mergedTutors.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.full_name}
+                        {t.pay_rate != null && ` ($${t.pay_rate}/hr)`}
+                        {t.archived_at && " (archived)"}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {form.formState.errors.tutor_id && (
+                  <p className="text-sm text-destructive">
+                    {form.formState.errors.tutor_id.message}
+                  </p>
+                )}
               </div>
-              {tutorId && (
-                <div className="space-y-1">
-                  <Label className="text-sm">Tutor Pay Rate ($/hr)</Label>
-                  <Input type="number" step="0.01" value={tutorPayRate} onChange={(e) => setTutorPayRate(e.target.value)} placeholder="$/hr" />
-                </div>
+              {form.watch("tutor_id") && (
+                <TextField
+                  name="tutor_pay_rate"
+                  label="Tutor Pay Rate ($/hr)"
+                  type="number"
+                  step="0.01"
+                  placeholder="$/hr"
+                />
               )}
-            </div>
-          </div>
+            </section>
 
-          {/* Schedule */}
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Schedule</h4>
-            <div className="space-y-1">
-              <Label className="text-sm">Date *</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm">Start *</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+            {/* Schedule */}
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Schedule
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <TextField
+                  name="start_time"
+                  label="Start"
+                  type="datetime-local"
+                  required
+                />
+                <TextField
+                  name="end_time"
+                  label="End"
+                  type="datetime-local"
+                  required
+                />
               </div>
-              <div className="space-y-1">
-                <Label className="text-sm">End *</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
-              </div>
-            </div>
-          </div>
+            </section>
 
-          {/* Details */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">Details</h4>
-            <div className="space-y-1">
-              <Label className="text-sm">Topic *</Label>
-              <Input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Algebra Review" required />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-sm">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="cancelled_billable">Cancelled (Billable)</SelectItem>
-                  <SelectItem value="cancelled_free">Cancelled (Free)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {status.startsWith("cancelled") && (
-              <div className="space-y-1">
-                <Label className="text-sm">Cancellation Reason</Label>
-                <Input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Why was the session cancelled?" />
-              </div>
+            {!isEdit && (
+              <section className="space-y-3 border-b pb-4">
+                <label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={repeatEnabled}
+                    onChange={(e) => setRepeatEnabled(e.target.checked)}
+                  />
+                  Repeat this session
+                </label>
+                {repeatEnabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Frequency</Label>
+                      <Select
+                        value={repeatFrequency}
+                        onValueChange={(v) =>
+                          setRepeatFrequency(
+                            v as "weekly" | "fortnightly" | "monthly",
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="fortnightly">
+                            Fortnightly
+                          </SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm">Occurrences</Label>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={52}
+                        value={repeatOccurrences}
+                        onChange={(e) =>
+                          setRepeatOccurrences(e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
+              </section>
             )}
-            <div className="space-y-1">
-              <Label className="text-sm">Notes</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Session notes..." rows={3} />
-            </div>
-          </div>
 
-          <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEdit ? "Update Session" : "Save Session"}
-            </Button>
-          </div>
-        </form>
+            {/* Details */}
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Details
+              </h4>
+              <TextField
+                name="topic"
+                label="Topic"
+                placeholder="e.g. Algebra Review"
+                required
+              />
+              <SelectField
+                name="status"
+                label="Status"
+                options={statusOptions}
+              />
+              {isCancelled && (
+                <TextField
+                  name="cancellation_reason"
+                  label="Cancellation Reason"
+                  placeholder="Why was the session cancelled?"
+                />
+              )}
+              <TextareaField
+                name="notes"
+                label="Notes"
+                placeholder="Session notes..."
+              />
+            </section>
+
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEdit ? "Update Session" : "Save Session"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

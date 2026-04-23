@@ -1,193 +1,181 @@
 "use client";
 
+import { Loader2, Plus } from "lucide-react";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
-import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Loader2 } from "lucide-react";
+import { Form } from "@/components/ui/form";
+import { TextField, TextareaField } from "@/components/shared/form-fields";
+import { useActionForm } from "@/hooks/use-action-form";
+import { createStudent, updateStudent } from "@/lib/actions/students";
+import { studentSchema, type StudentInput } from "@/lib/schemas";
+
+type StudentRow = StudentInput & { id: string };
 
 type Props = {
-  onSuccess?: () => void;
-  initialData?: any;
+  initialData?: StudentRow | null;
   trigger?: React.ReactNode;
 };
 
-export function StudentDialog({ onSuccess, initialData, trigger }: Props) {
+const emptyDefaults = {
+  full_name: "",
+  email: "",
+  phone: "",
+  address: "",
+  grade_level: "",
+  default_rate: "",
+  parent_name: "",
+  parent_email: "",
+  parent_phone: "",
+  alt_parent_name: "",
+  alt_parent_email: "",
+  alt_parent_phone: "",
+  notes: "",
+};
+
+function toFormValues(row: StudentRow | null | undefined) {
+  if (!row) return emptyDefaults;
+  return {
+    full_name: row.full_name ?? "",
+    email: row.email ?? "",
+    phone: row.phone ?? "",
+    address: row.address ?? "",
+    grade_level: row.grade_level == null ? "" : String(row.grade_level),
+    default_rate: row.default_rate == null ? "" : String(row.default_rate),
+    parent_name: row.parent_name ?? "",
+    parent_email: row.parent_email ?? "",
+    parent_phone: row.parent_phone ?? "",
+    alt_parent_name: row.alt_parent_name ?? "",
+    alt_parent_email: row.alt_parent_email ?? "",
+    alt_parent_phone: row.alt_parent_phone ?? "",
+    notes: row.notes ?? "",
+  };
+}
+
+export function StudentDialog({ initialData, trigger }: Props) {
   const isEdit = !!initialData;
-  const { organizationId } = useAuth();
-  const supabase = createClient();
-
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [gradeLevel, setGradeLevel] = useState("");
-  const [defaultRate, setDefaultRate] = useState("");
-  const [parentName, setParentName] = useState("");
-  const [parentEmail, setParentEmail] = useState("");
-  const [parentPhone, setParentPhone] = useState("");
-  const [altParentName, setAltParentName] = useState("");
-  const [altParentEmail, setAltParentEmail] = useState("");
-  const [altParentPhone, setAltParentPhone] = useState("");
-  const [notes, setNotes] = useState("");
-
-  function prefill() {
-    if (!initialData) return;
-    setFullName(initialData.full_name || "");
-    setEmail(initialData.email || "");
-    setPhone(initialData.phone || "");
-    setAddress(initialData.address || "");
-    setGradeLevel(initialData.grade_level?.toString() ?? "");
-    setDefaultRate(initialData.default_rate?.toString() ?? "");
-    setParentName(initialData.parent_name || "");
-    setParentEmail(initialData.parent_email || "");
-    setParentPhone(initialData.parent_phone || "");
-    setAltParentName(initialData.alt_parent_name || "");
-    setAltParentEmail(initialData.alt_parent_email || "");
-    setAltParentPhone(initialData.alt_parent_phone || "");
-    setNotes(initialData.notes || "");
-  }
-
-  function resetForm() {
-    setFullName(""); setEmail(""); setPhone(""); setAddress(""); setGradeLevel(""); setDefaultRate("");
-    setParentName(""); setParentEmail(""); setParentPhone("");
-    setAltParentName(""); setAltParentEmail(""); setAltParentPhone("");
-    setNotes("");
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const payload = {
-      full_name: fullName,
-      email: email || null,
-      phone: phone || null,
-      address: address || null,
-      grade_level: gradeLevel ? parseInt(gradeLevel) : null,
-      default_rate: parseFloat(defaultRate) || 0,
-      parent_name: parentName,
-      parent_email: parentEmail,
-      parent_phone: parentPhone,
-      alt_parent_name: altParentName || null,
-      alt_parent_email: altParentEmail || null,
-      alt_parent_phone: altParentPhone || null,
-      notes: notes || null,
-    };
-
-    const { error } = isEdit
-      ? await supabase.from("students").update(payload).eq("id", initialData.id)
-      : await supabase.from("students").insert({ ...payload, organization_id: organizationId });
-
-    if (error) {
-      alert(`Error: ${error.message}`);
-    } else {
+  const { form, onSubmit, pending } = useActionForm({
+    schema: studentSchema,
+    action: isEdit
+      ? (values) => updateStudent(initialData.id, values)
+      : createStudent,
+    defaultValues: toFormValues(initialData),
+    successMessage: isEdit ? "Student updated" : "Student added",
+    onSuccess: () => {
       setOpen(false);
-      if (!isEdit) resetForm();
-      onSuccess?.();
-    }
-    setLoading(false);
-  }
+      if (!isEdit) form.reset(emptyDefaults);
+    },
+  });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) prefill(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) form.reset(toFormValues(initialData));
+      }}
+    >
       <DialogTrigger asChild>
         {trigger || (
-          <Button><Plus className="mr-2 h-4 w-4" /> Add Student</Button>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Add Student
+          </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Student" : "Add Student"}</DialogTitle>
-          <DialogDescription>{isEdit ? "Update student details." : "Enter student details below."}</DialogDescription>
+          <DialogDescription>
+            {isEdit ? "Update student details." : "Enter student details below."}
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-2">
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Student Info</h4>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Name *</Label>
-              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Address</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} className="col-span-3" placeholder="Street, suburb, postcode" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Grade</Label>
-              <Input type="number" value={gradeLevel} onChange={(e) => setGradeLevel(e.target.value)} className="col-span-3" placeholder="e.g. 10" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Rate ($/hr) *</Label>
-              <Input type="number" step="0.01" value={defaultRate} onChange={(e) => setDefaultRate(e.target.value)} className="col-span-3" required />
-            </div>
-          </div>
 
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Parent / Guardian</h4>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Name *</Label>
-              <Input value={parentName} onChange={(e) => setParentName(e.target.value)} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Email *</Label>
-              <Input type="email" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} className="col-span-3" required />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Phone *</Label>
-              <Input value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} className="col-span-3" required />
-            </div>
-          </div>
+        <Form {...form}>
+          <form onSubmit={onSubmit} className="grid gap-4 py-2">
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Student Info
+              </h4>
+              <TextField name="full_name" label="Name" required />
+              <TextField name="email" type="email" label="Email" />
+              <TextField name="phone" label="Phone" />
+              <TextField
+                name="address"
+                label="Address"
+                placeholder="Street, suburb, postcode"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <TextField
+                  name="grade_level"
+                  label="Grade"
+                  type="number"
+                  placeholder="e.g. 10"
+                />
+                <TextField
+                  name="default_rate"
+                  label="Rate ($/hr)"
+                  type="number"
+                  step="0.01"
+                  required
+                />
+              </div>
+            </section>
 
-          <div className="space-y-3 border-b pb-4">
-            <h4 className="text-sm font-semibold text-muted-foreground">Alt Parent (Optional)</h4>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Name</Label>
-              <Input value={altParentName} onChange={(e) => setAltParentName(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Email</Label>
-              <Input type="email" value={altParentEmail} onChange={(e) => setAltParentEmail(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-3">
-              <Label className="text-right text-sm">Phone</Label>
-              <Input value={altParentPhone} onChange={(e) => setAltParentPhone(e.target.value)} className="col-span-3" />
-            </div>
-          </div>
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Parent / Guardian
+              </h4>
+              <TextField name="parent_name" label="Name" required />
+              <TextField
+                name="parent_email"
+                type="email"
+                label="Email"
+                required
+              />
+              <TextField name="parent_phone" label="Phone" required />
+            </section>
 
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-muted-foreground">Notes</h4>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes..." />
-          </div>
+            <section className="space-y-3 border-b pb-4">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Alt Parent (Optional)
+              </h4>
+              <TextField name="alt_parent_name" label="Name" />
+              <TextField
+                name="alt_parent_email"
+                type="email"
+                label="Email"
+              />
+              <TextField name="alt_parent_phone" label="Phone" />
+            </section>
 
-          <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEdit ? "Update" : "Save"}
-            </Button>
-          </div>
-        </form>
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Notes
+              </h4>
+              <TextareaField
+                name="notes"
+                placeholder="Any additional notes..."
+              />
+            </section>
+
+            <DialogFooter>
+              <Button type="submit" disabled={pending}>
+                {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEdit ? "Update" : "Save"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
