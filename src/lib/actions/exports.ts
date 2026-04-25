@@ -223,3 +223,65 @@ export async function exportSessionLogsCsv(): Promise<ActionResult<CsvFile>> {
   ]);
   return ok({ filename: `session-logs-${today()}.csv`, content });
 }
+
+export async function exportTutorsCsv(): Promise<ActionResult<CsvFile>> {
+  const { supabase, organizationId } = await requireOrg();
+  const { data, error } = await supabase
+    .from("tutors")
+    .select(
+      "full_name, email, phone, address, pay_rate, subjects_taught, year_levels_taught, emergency_name, emergency_phone, alt_emergency_name, alt_emergency_phone, archived_at, created_at",
+    )
+    .eq("organization_id", organizationId)
+    .order("full_name");
+  if (error) return fail(error.message);
+
+  const rows = (data ?? []).map((t) => {
+    const r = t as unknown as {
+      full_name: string;
+      email: string;
+      phone: string;
+      address: string;
+      pay_rate: number;
+      subjects_taught: string[] | null;
+      year_levels_taught: number[] | null;
+      emergency_name: string;
+      emergency_phone: string;
+      alt_emergency_name: string | null;
+      alt_emergency_phone: string | null;
+      archived_at: string | null;
+      created_at: string | null;
+    };
+    return {
+      full_name: r.full_name,
+      email: r.email,
+      phone: r.phone,
+      address: r.address,
+      pay_rate: Number(r.pay_rate ?? 0).toFixed(2),
+      subjects_taught: (r.subjects_taught ?? []).join("; "),
+      year_levels_taught: (r.year_levels_taught ?? []).join("; "),
+      emergency_name: r.emergency_name,
+      emergency_phone: r.emergency_phone,
+      alt_emergency_name: r.alt_emergency_name ?? "",
+      alt_emergency_phone: r.alt_emergency_phone ?? "",
+      archived: r.archived_at ? "yes" : "no",
+      created_at: r.created_at ?? "",
+    };
+  });
+
+  const content = toCsv(rows, [
+    "full_name",
+    "email",
+    "phone",
+    "address",
+    "pay_rate",
+    "subjects_taught",
+    "year_levels_taught",
+    "emergency_name",
+    "emergency_phone",
+    "alt_emergency_name",
+    "alt_emergency_phone",
+    "archived",
+    "created_at",
+  ]);
+  return ok({ filename: `tutors-${today()}.csv`, content });
+}

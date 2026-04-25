@@ -37,8 +37,18 @@ import {
   EmailMultiPicker,
   type EmailSuggestion,
 } from "@/components/ui/email-multi-picker";
-import { saveDraftAction, updateDraftAction, markDraftSentAction, sendDraftAction } from "@/lib/actions/emails";
+import { saveDraftAction, updateDraftAction, sendDraftAction } from "@/lib/actions/emails";
 import type { EmailDraftContext } from "@/lib/db-types";
+
+export type ComposeDialogExistingDraft = {
+  id: string;
+  contextType: EmailDraftContext;
+  contextId: string | null;
+  studentId: string | null;
+  toEmail: string;
+  subject: string;
+  body: string;
+};
 import { cn } from "@/lib/utils";
 
 export type ComposeDialogProps = {
@@ -56,6 +66,11 @@ export type ComposeDialogProps = {
    * from an entity page where the context is already known.
    */
   lockContextType?: boolean;
+  /**
+   * If provided, the dialog opens in edit mode for the given draft —
+   * fields are populated from the draft and saving updates the same row.
+   */
+  existingDraft?: ComposeDialogExistingDraft | null;
 };
 
 type ContextOption = {
@@ -150,42 +165,71 @@ export function ComposeDialog(props: ComposeDialogProps) {
     prefillBody,
     prefillInstructions,
     lockContextType,
+    existingDraft,
   } = props;
 
-  const [contextType, setContextType] =
-    React.useState<EmailDraftContext>(defaultContextType);
+  const initialToEmails = existingDraft
+    ? splitEmailList(existingDraft.toEmail)
+    : prefillToEmail
+    ? [prefillToEmail]
+    : [];
+
+  const [contextType, setContextType] = React.useState<EmailDraftContext>(
+    existingDraft?.contextType ?? defaultContextType,
+  );
   const [contextId, setContextId] = React.useState<string | null>(
-    initialContextId ?? null,
+    existingDraft?.contextId ?? initialContextId ?? null,
   );
   const [studentId, setStudentId] = React.useState<string | null>(
-    initialStudentId ?? null,
+    existingDraft?.studentId ?? initialStudentId ?? null,
   );
   // For session_summary the user can pick more than one student; the email
   // suggestion list and the saved draft both honor this selection. For all
   // other context types the array stays in sync with `studentId`.
   const [selectedStudentIds, setSelectedStudentIds] = React.useState<string[]>(
-    initialStudentId ? [initialStudentId] : [],
+    existingDraft?.studentId
+      ? [existingDraft.studentId]
+      : initialStudentId
+      ? [initialStudentId]
+      : [],
   );
 
   const [tone, setTone] = React.useState<"professional" | "friendly" | "formal">(
     "friendly",
   );
   const [instructions, setInstructions] = React.useState(prefillInstructions ?? "");
-  const [toEmails, setToEmails] = React.useState<string[]>(
-    prefillToEmail ? [prefillToEmail] : [],
+  const [toEmails, setToEmails] = React.useState<string[]>(initialToEmails);
+  const [subject, setSubject] = React.useState(
+    existingDraft?.subject ?? prefillSubject ?? "",
   );
-  const [subject, setSubject] = React.useState(prefillSubject ?? "");
-  const [body, setBody] = React.useState(prefillBody ?? "");
-  const [draftId, setDraftId] = React.useState<string | null>(null);
+  const [body, setBody] = React.useState(existingDraft?.body ?? prefillBody ?? "");
+  const [draftId, setDraftId] = React.useState<string | null>(
+    existingDraft?.id ?? null,
+  );
 
   const [pickerItems, setPickerItems] = React.useState<PickerItem[]>([]);
   const [pickerLoading, setPickerLoading] = React.useState(false);
   const [pickerError, setPickerError] = React.useState<string | null>(null);
 
-  // Lazily-loaded full student list for contexts that always need one
-  // (currently `resource_assignment`).
+  // Lazily-loaded full student list for contexts that need a separate student
+  // selector (resource_assignment, invoice_reminder).
   const [studentList, setStudentList] = React.useState<PickerItem[]>([]);
   const [studentListLoading, setStudentListLoading] = React.useState(false);
+  const studentListFetchedRef = React.useRef(false);
+
+  // For invoice_reminder we let the user pick the student first, then narrow
+  // the invoice picker to that student. Stored separately from `studentId`
+  // because the invoice's student is what gets persisted on the draft once
+  // an invoice is selected.
+  const [invoiceStudentId, setInvoiceStudentId] = React.useState<string | null>(
+    null,
+  );
+
+  // For resource_assignment: the user can attach multiple resources and send
+  // to multiple students. The primary resource is `contextId` (saved on the
+  // draft); the rest live here and are passed to the AI generator.
+  const [extraResourceIds, setExtraResourceIds] = React.useState<string[]>([]);
+  const [extraStudentIds, setExtraStudentIds] = React.useState<string[]>([]);
 
   const [generating, setGenerating] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -196,26 +240,44 @@ export function ComposeDialog(props: ComposeDialogProps) {
   const currentContext =
     contextOptions.find((o) => o.value === contextType) ?? contextOptions[0];
 
-  // Reset state on open. Honor any pre-fills (e.g. opened from an entity page).
+  // Reset state on open. Honor any pre-fills (e.g. opened from an entity page)
+  // or seed from an existing draft when editing.
   React.useEffect(() => {
     if (!open) return;
     /* eslint-disable react-hooks/set-state-in-effect */
-    setContextType(defaultContextType);
-    setContextId(initialContextId ?? null);
-    setStudentId(initialStudentId ?? null);
-    setSelectedStudentIds(initialStudentId ? [initialStudentId] : []);
-    setInstructions(prefillInstructions ?? "");
-    setToEmails(prefillToEmail ? [prefillToEmail] : []);
-    setSubject(prefillSubject ?? "");
-    setBody(prefillBody ?? "");
-    setDraftId(null);
+    if (existingDraft) {
+      setContextType(existingDraft.contextType);
+      setContextId(existingDraft.contextId);
+      setStudentId(existingDraft.studentId);
+      setSelectedStudentIds(existingDraft.studentId ? [existingDraft.studentId] : []);
+      setInstructions("");
+      setToEmails(splitEmailList(existingDraft.toEmail));
+      setSubject(existingDraft.subject);
+      setBody(existingDraft.body);
+      setDraftId(existingDraft.id);
+    } else {
+      setContextType(defaultContextType);
+      setContextId(initialContextId ?? null);
+      setStudentId(initialStudentId ?? null);
+      setSelectedStudentIds(initialStudentId ? [initialStudentId] : []);
+      setInstructions(prefillInstructions ?? "");
+      setToEmails(prefillToEmail ? [prefillToEmail] : []);
+      setSubject(prefillSubject ?? "");
+      setBody(prefillBody ?? "");
+      setDraftId(null);
+    }
     setError(null);
     setPickerItems([]);
     setPickerError(null);
     setStudentList([]);
+    studentListFetchedRef.current = false;
+    setInvoiceStudentId(null);
+    setExtraResourceIds([]);
+    setExtraStudentIds([]);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [
     open,
+    existingDraft,
     defaultContextType,
     initialContextId,
     initialStudentId,
@@ -261,14 +323,16 @@ export function ComposeDialog(props: ComposeDialogProps) {
     };
   }, [open, contextType, currentContext.needsPicker]);
 
-  // Resource share has no inherent student — lazy-load the full student list
-  // once the user picks resource_assignment.
+  // Some contexts need a full student list shown alongside the primary
+  // picker (resource_assignment → choose recipients; invoice_reminder →
+  // pick the student first to filter invoices). Load once per dialog open.
   React.useEffect(() => {
     if (!open) return;
-    if (contextType !== "resource_assignment") return;
-    if (studentList.length > 0 || studentListLoading) return;
+    if (contextType !== "resource_assignment" && contextType !== "invoice_reminder")
+      return;
+    if (studentListFetchedRef.current) return;
+    studentListFetchedRef.current = true;
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStudentListLoading(true);
     fetch("/api/emails/picker?type=prepaid_topup")
       .then(async (res) => {
@@ -284,13 +348,16 @@ export function ComposeDialog(props: ComposeDialogProps) {
     return () => {
       cancelled = true;
     };
-  }, [open, contextType, studentList.length, studentListLoading]);
+  }, [open, contextType]);
 
   const handleContextTypeChange = (value: EmailDraftContext) => {
     setContextType(value);
     setContextId(null);
     setStudentId(null);
     setSelectedStudentIds([]);
+    setInvoiceStudentId(null);
+    setExtraResourceIds([]);
+    setExtraStudentIds([]);
     // Clear recipients — a fresh context means new options to pick from.
     setToEmails([]);
   };
@@ -330,6 +397,13 @@ export function ComposeDialog(props: ComposeDialogProps) {
         p.contextField === "studentId" ? p.id === studentId : p.id === contextId,
       ) ?? null
     : null;
+
+  // Invoice reminder: filter invoices to the chosen student. The full list is
+  // loaded once and we narrow it down for display.
+  const visiblePickerItems =
+    contextType === "invoice_reminder" && invoiceStudentId
+      ? pickerItems.filter((p) => p.studentId === invoiceStudentId)
+      : pickerItems;
 
   const sessionStudents =
     contextType === "session_summary" && selectedPickerItem?.students
@@ -428,10 +502,17 @@ export function ComposeDialog(props: ComposeDialogProps) {
       // Primary picker contributes its own pre-filtered emailOptions.
       selectedPickerItem?.emailOptions?.forEach(push);
     }
-    // Resource share: add the chosen student's parent + student emails.
+    // Resource share: add the chosen student's parent + student emails,
+    // plus any extra students the user opted to send to.
     if (resourceNeedsStudentPick && studentId) {
       const match = studentList.find((s) => s.id === studentId);
       match?.emailOptions?.forEach(push);
+    }
+    if (contextType === "resource_assignment") {
+      for (const sid of extraStudentIds) {
+        const m = studentList.find((s) => s.id === sid);
+        m?.emailOptions?.forEach(push);
+      }
     }
     return out;
   })();
@@ -449,6 +530,10 @@ export function ComposeDialog(props: ComposeDialogProps) {
           contextType,
           contextId,
           studentId,
+          extraResourceIds:
+            contextType === "resource_assignment" ? extraResourceIds : undefined,
+          extraStudentIds:
+            contextType === "resource_assignment" ? extraStudentIds : undefined,
           tone,
           extraInstructions: instructions || undefined,
         }),
@@ -481,19 +566,24 @@ export function ComposeDialog(props: ComposeDialogProps) {
     }
   };
 
-  const canSave = toEmails.length > 0 && subject.trim() && body.trim();
+  // Saving a draft is enabled as soon as at least one of recipient / subject /
+  // body has any content. Sending and the mailto handoff still require all
+  // three to be filled in (see `canSend`).
+  const canSave =
+    toEmails.length > 0 || subject.trim().length > 0 || body.trim().length > 0;
+  const canSend =
+    toEmails.length > 0 && subject.trim().length > 0 && body.trim().length > 0;
 
   const handleSave = async (): Promise<string | null> => {
     if (!canSave) return null;
     setSaving(true);
     setError(null);
     try {
-      // Backend stores a single `to_email` string. Send the first as the
-      // canonical address; additional recipients are still respected via the
-      // mailto handoff below.
-      const primary = toEmails[0];
+      // Backend stores `to_email` as a comma-separated string so multiple
+      // recipients survive a round-trip through the drafts table.
+      const joined = toEmails.join(", ");
       if (draftId) {
-        await updateDraftAction({ id: draftId, toEmail: primary, subject, body });
+        await updateDraftAction({ id: draftId, toEmail: joined, subject, body });
         toast.success("Draft saved");
         return draftId;
       }
@@ -501,7 +591,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
         contextType,
         contextId,
         studentId,
-        toEmail: primary,
+        toEmail: joined,
         subject,
         body,
       });
@@ -529,7 +619,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
   };
 
   const handleSendNow = async () => {
-    if (!canSave) return;
+    if (!canSend) return;
     setSending(true);
     setError(null);
     try {
@@ -567,11 +657,15 @@ export function ComposeDialog(props: ComposeDialogProps) {
   };
 
   const handleOpenInMail = async () => {
-    if (!canSave) return;
+    if (!canSend) return;
     setOpening(true);
     setError(null);
     try {
-      const id = await handleSave();
+      // Always persist first so the row is preserved as a draft. The mailto
+      // handoff does NOT mark the draft as sent — the user must explicitly
+      // mark it sent (or use the in-app Send button) once the message has
+      // actually left their inbox.
+      await handleSave();
       const params = new URLSearchParams();
       if (subject) params.set("subject", subject);
       if (body) params.set("body", body);
@@ -588,13 +682,10 @@ export function ComposeDialog(props: ComposeDialogProps) {
           description: "Body was copied to clipboard — paste it into the message.",
         });
       }
-      if (id) {
-        try {
-          await markDraftSentAction(id);
-        } catch {
-          // non-fatal
-        }
-      }
+      toast.message("Saved as draft", {
+        description:
+          "Mark it as sent from the Emails tab once it has actually left your inbox.",
+      });
       onOpenChange(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Couldn't open mail app";
@@ -612,7 +703,8 @@ export function ComposeDialog(props: ComposeDialogProps) {
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 sm:p-0">
         <DialogHeader className="border-b p-6 pb-4">
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <Sparkles className="h-5 w-5 text-primary" /> Compose email
+            <Sparkles className="h-5 w-5 text-primary" />{" "}
+            {existingDraft ? "Edit draft" : "Compose email"}
           </DialogTitle>
           <DialogDescription>
             Pick a context, let AI draft it for you, then send it from the
@@ -669,16 +761,59 @@ export function ComposeDialog(props: ComposeDialogProps) {
 
             {currentContext.needsPicker && (
               <div className="space-y-1.5">
+                {contextType === "invoice_reminder" && (
+                  <div className="space-y-1.5">
+                    <Label>Student</Label>
+                    <SearchablePicker
+                      items={studentList.map((s) => ({
+                        id: s.id,
+                        label: s.label,
+                        sublabel: s.sublabel,
+                      }))}
+                      value={invoiceStudentId ?? ""}
+                      onValueChange={(id) => {
+                        setInvoiceStudentId(id);
+                        // If the currently selected invoice belongs to a
+                        // different student, clear it so the user re-picks.
+                        if (
+                          contextId &&
+                          !pickerItems.some(
+                            (p) => p.id === contextId && p.studentId === id,
+                          )
+                        ) {
+                          setContextId(null);
+                          setStudentId(null);
+                        }
+                      }}
+                      placeholder="Pick a student first…"
+                      searchPlaceholder="Search students…"
+                      emptyText="No students found."
+                      loading={studentListLoading}
+                      disabled={busy}
+                    />
+                  </div>
+                )}
                 <Label>{currentContext.pickerLabel}</Label>
                 <SearchablePicker
-                  items={pickerItems}
+                  items={visiblePickerItems}
                   value={pickerSelectedId}
                   onValueChange={handlePickerSelect}
-                  placeholder={`Select ${currentContext.pickerLabel?.toLowerCase()}…`}
+                  placeholder={
+                    contextType === "invoice_reminder" && !invoiceStudentId
+                      ? "Pick a student first to see their invoices…"
+                      : `Select ${currentContext.pickerLabel?.toLowerCase()}…`
+                  }
                   searchPlaceholder={`Search ${currentContext.pickerLabel?.toLowerCase()}s…`}
-                  emptyText={`No ${currentContext.pickerLabel?.toLowerCase()}s found.`}
+                  emptyText={
+                    contextType === "invoice_reminder" && invoiceStudentId
+                      ? "This student has no open invoices."
+                      : `No ${currentContext.pickerLabel?.toLowerCase()}s found.`
+                  }
                   loading={pickerLoading}
-                  disabled={busy}
+                  disabled={
+                    busy ||
+                    (contextType === "invoice_reminder" && !invoiceStudentId)
+                  }
                 />
                 {pickerError && (
                   <p className="text-xs text-destructive">{pickerError}</p>
@@ -750,7 +885,108 @@ export function ComposeDialog(props: ComposeDialogProps) {
                   loading={studentListLoading}
                   disabled={busy}
                 />
+                {studentList.length > 0 && (
+                  <details className="rounded-md border bg-card/50 p-2">
+                    <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
+                      Send to additional students ({extraStudentIds.length} selected)
+                    </summary>
+                    <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                      {studentList
+                        .filter((s) => s.id !== studentId)
+                        .map((s) => {
+                          const checked = extraStudentIds.includes(s.id);
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() =>
+                                setExtraStudentIds((prev) =>
+                                  prev.includes(s.id)
+                                    ? prev.filter((x) => x !== s.id)
+                                    : [...prev, s.id],
+                                )
+                              }
+                              disabled={busy}
+                              aria-pressed={checked}
+                              className={cn(
+                                "flex items-start gap-2 rounded-md border bg-background p-2 text-left text-xs transition",
+                                "hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                                checked && "border-primary bg-primary/5",
+                              )}
+                            >
+                              {checked ? (
+                                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                              ) : (
+                                <Square className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium">
+                                  {s.label}
+                                </span>
+                                {s.sublabel && (
+                                  <span className="block truncate text-[11px] text-muted-foreground">
+                                    {s.sublabel}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </details>
+                )}
               </div>
+            )}
+
+            {contextType === "resource_assignment" && contextId && pickerItems.length > 1 && (
+              <details className="rounded-md border bg-card/50 p-2">
+                <summary className="cursor-pointer select-none text-xs font-medium text-muted-foreground">
+                  Share additional resources ({extraResourceIds.length} selected)
+                </summary>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {pickerItems
+                    .filter((r) => r.id !== contextId)
+                    .map((r) => {
+                      const checked = extraResourceIds.includes(r.id);
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() =>
+                            setExtraResourceIds((prev) =>
+                              prev.includes(r.id)
+                                ? prev.filter((x) => x !== r.id)
+                                : [...prev, r.id],
+                            )
+                          }
+                          disabled={busy}
+                          aria-pressed={checked}
+                          className={cn(
+                            "flex items-start gap-2 rounded-md border bg-background p-2 text-left text-xs transition",
+                            "hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50",
+                            checked && "border-primary bg-primary/5",
+                          )}
+                        >
+                          {checked ? (
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          ) : (
+                            <Square className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">
+                              {r.label}
+                            </span>
+                            {r.sublabel && (
+                              <span className="block truncate text-[11px] text-muted-foreground">
+                                {r.sublabel}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+              </details>
             )}
           </Section>
 
@@ -882,8 +1118,8 @@ export function ComposeDialog(props: ComposeDialogProps) {
               type="button"
               variant="ghost"
               onClick={handleOpenInMail}
-              disabled={!canSave || busy}
-              title="Open the draft in your default mail app"
+              disabled={!canSend || busy}
+              title="Open the draft in your default mail app (it stays a draft until you mark it sent)"
             >
               {opening ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -909,7 +1145,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
             <Button
               type="button"
               onClick={handleSendNow}
-              disabled={!canSave || busy}
+              disabled={!canSend || busy}
             >
               {sending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -947,4 +1183,13 @@ function Section({
       {children}
     </section>
   );
+}
+
+// Split a comma-separated `to_email` string back into a recipient array.
+function splitEmailList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }

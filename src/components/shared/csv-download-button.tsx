@@ -38,7 +38,6 @@ export function CsvDownloadButton({ action, label }: Props) {
     <Button
       type="button"
       variant="outline"
-      size="sm"
       onClick={handle}
       disabled={pending}
     >

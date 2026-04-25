@@ -13,6 +13,7 @@ import {
   Menu,
   Search,
   Settings,
+  Sparkles,
   Users,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { CommandPalette, openCommandPalette } from "@/components/command-palette";
+import { AskPanel, openAskPanel } from "@/components/ai/ask-panel";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -91,6 +93,7 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
   return (
     <>
       <CommandPalette />
+      <AskPanel />
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         {/* Sidebar */}
         <aside
@@ -181,6 +184,17 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
             >
               <Search className="h-3.5 w-3.5" />
               <span>Search…</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden h-8 gap-2 sm:inline-flex"
+              onClick={openAskPanel}
+              title="Ask AI"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span>Ask AI</span>
             </Button>
 
             {userId && notifications && (

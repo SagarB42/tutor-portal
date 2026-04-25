@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   Mail,
   Moon,
+  Settings,
+  Sparkles,
   Sun,
   Users,
 } from "lucide-react";
@@ -24,6 +26,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { openAskPanel } from "@/components/ai/ask-panel";
 
 export const COMMAND_PALETTE_EVENT = "command-palette:toggle";
 
@@ -42,6 +45,7 @@ const navItems = [
   { label: "Finance", href: "/dashboard/finance", icon: DollarSign },
   { label: "Resources", href: "/dashboard/resources", icon: BookOpen },
   { label: "Emails", href: "/dashboard/emails", icon: Mail },
+  { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export function CommandPalette() {
@@ -77,6 +81,13 @@ export function CommandPalette() {
       <CommandInput placeholder="Search or jump to…" />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
+        <CommandGroup heading="Actions">
+          <CommandItem onSelect={() => run(() => openAskPanel())}>
+            <Sparkles className="mr-2 h-4 w-4 text-primary" />
+            Ask AI
+          </CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
         <CommandGroup heading="Navigate">
           {navItems.map(({ label, href, icon: Icon }) => (
             <CommandItem key={href} onSelect={() => run(() => router.push(href))}>

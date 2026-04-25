@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tabs";
 import { listEmailDrafts, countDraftsByStatus } from "@/lib/queries/emails";
 import { requireOrg } from "@/lib/queries/org";
-import type { EmailDraftStatus } from "@/lib/db-types";
+import type { EmailDraftContext, EmailDraftStatus } from "@/lib/db-types";
 import { NewEmailButton } from "./_components/new-email-button";
 import { DraftRowActions } from "./_components/draft-row-actions";
 
@@ -84,7 +84,7 @@ export default async function EmailsPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="draft" className="w-full">
-            <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsList>
               <TabsTrigger value="draft">
                 Drafts{" "}
                 <Badge variant="outline" className="ml-2">
@@ -143,8 +143,16 @@ export default async function EmailsPage() {
                               </p>
                             </div>
                             <DraftRowActions
-                              draftId={d.id}
-                              status={d.status as EmailDraftStatus}
+                              draft={{
+                                id: d.id,
+                                status: d.status as EmailDraftStatus,
+                                context_type: d.context_type as EmailDraftContext,
+                                context_id: d.context_id ?? null,
+                                student_id: d.student_id ?? null,
+                                to_email: d.to_email,
+                                subject: d.subject,
+                                body: d.body,
+                              }}
                             />
                           </li>
                         );

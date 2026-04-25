@@ -90,7 +90,10 @@ export function plainTextToHtml(text: string): string {
   // Wrap each paragraph (split on blank lines) and convert single newlines to <br>.
   const paragraphs = escaped
     .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 1em 0;line-height:1.5">${p.replace(/\n/g, "<br />")}</p>`) // eslint-disable-line max-len
+    .map(
+      (p) =>
+        `<p style="margin:0 0 1em 0;line-height:1.5">${p.replace(/\n/g, "<br />")}</p>`,
+    )
     .join("");
   return `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#111;font-size:14px">${paragraphs}</body></html>`;
 }

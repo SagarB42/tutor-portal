@@ -37,10 +37,11 @@ export type SessionStatus = z.infer<typeof sessionStatusEnum>;
 
 const nonEmpty = z.string().trim().min(1, "Required");
 const optionalString = z
-  .string()
-  .trim()
-  .optional()
-  .transform((v) => (v ? v : null));
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => {
+    const s = typeof v === "string" ? v.trim() : "";
+    return s.length > 0 ? s : null;
+  });
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 
 /** Accepts "", null, undefined as "not set" → null, otherwise coerces to number. */

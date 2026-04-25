@@ -20,7 +20,22 @@ import type { EmailDraftRow } from "@/lib/db-types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Validates a comma-separated list of emails. Allows an empty string so that
+// drafts can be saved before the user has added any recipients.
 const emailListSchema = z
+  .string()
+  .refine(
+    (v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .every((e) => EMAIL_RE.test(e)),
+    "One or more email addresses are invalid",
+  );
+
+// Stricter version used by send — requires at least one valid address.
+const requiredEmailListSchema = z
   .string()
   .min(1, "At least one recipient is required")
   .refine(
@@ -43,20 +58,30 @@ const ContextSchema = z.enum([
   "custom",
 ]);
 
-const CreateSchema = z.object({
-  contextType: ContextSchema,
-  contextId: z.string().uuid().nullish(),
-  studentId: z.string().uuid().nullish(),
-  toEmail: emailListSchema,
-  subject: z.string().min(1).max(500),
-  body: z.string().min(1),
-});
+// Saving a draft only requires that *something* has been entered — recipient,
+// subject, or body. Each field on its own may be blank.
+const CreateSchema = z
+  .object({
+    contextType: ContextSchema,
+    contextId: z.string().uuid().nullish(),
+    studentId: z.string().uuid().nullish(),
+    toEmail: emailListSchema,
+    subject: z.string().max(500),
+    body: z.string(),
+  })
+  .refine(
+    (v) => v.toEmail.trim() !== "" || v.subject.trim() !== "" || v.body.trim() !== "",
+    {
+      message: "Add a recipient, subject, or body before saving the draft",
+      path: ["body"],
+    },
+  );
 
 const UpdateSchema = z.object({
   id: z.string().uuid(),
   toEmail: emailListSchema.optional(),
-  subject: z.string().min(1).max(500).optional(),
-  body: z.string().min(1).optional(),
+  subject: z.string().max(500).optional(),
+  body: z.string().optional(),
 });
 
 export async function saveDraftAction(input: CreateEmailDraftInput): Promise<EmailDraftRow> {

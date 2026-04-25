@@ -13,6 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ActionButton } from "@/components/shared/action-button";
+import { CsvDownloadButton } from "@/components/shared/csv-download-button";
 import { TutorDialog } from "@/components/tutors/tutor-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { archiveTutor, restoreTutor } from "@/lib/actions/tutors";
+import { exportTutorsCsv } from "@/lib/actions/exports";
 import { formatCurrency } from "@/lib/utils";
 
 type TutorRow = {
@@ -75,6 +77,7 @@ export function TutorsList({ tutors }: { tutors: TutorRow[] }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <CsvDownloadButton action={exportTutorsCsv} label="Export CSV" />
           <TutorDialog />
         </div>
       </div>

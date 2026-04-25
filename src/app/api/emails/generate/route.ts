@@ -23,6 +23,8 @@ const BodySchema = z.object({
   contextType: ContextTypeEnum,
   contextId: z.string().uuid().nullable().optional(),
   studentId: z.string().uuid().nullable().optional(),
+  extraResourceIds: z.array(z.string().uuid()).max(20).optional(),
+  extraStudentIds: z.array(z.string().uuid()).max(20).optional(),
   tone: z.enum(["professional", "friendly", "formal"]).default("friendly"),
   extraInstructions: z.string().max(2000).optional(),
 });
@@ -39,15 +41,15 @@ function buildSystemPrompt(
 ) {
   const contextHint: Record<EmailDraftContext, string> = {
     session_summary:
-      "Write a brief post-session summary for the parent: what was covered, how the student engaged, and next steps.",
+      "Write a brief post-session summary for the parent: what was covered, how the student engaged, any resources that were shared (mention each by title and what it helps with — include the URL inline), and next steps.",
     invoice_reminder:
       "Write a courteous invoice reminder. Be polite, reference the invoice number, total, and due date. Do not sound aggressive.",
     prepaid_topup:
       "Write a friendly prepaid-balance top-up request. Mention current balance and suggest an amount to replenish.",
     attendance_absence:
-      "Write a short, caring follow-up after a missed session. Offer to reschedule.",
+      "Write a short, caring follow-up about a session attendance issue. Read the `status` fact carefully: if it is `late`, gently acknowledge they were late and politely ask what happened so we can plan ahead. If it is `absent` or `excused`, acknowledge the missed session, ask what happened (no judgement), and offer to reschedule. Stay warm and supportive — never accusatory.",
     resource_assignment:
-      "Write a brief email sharing a learning resource. Include a line about how it helps.",
+      "Write a brief email sharing one or more learning resources with the student/parent. List EVERY resource by its title and include its URL inline so the recipient can click through. Add one short line per resource explaining how it helps. If multiple students are listed, address them by first name in the greeting (e.g. 'Hi Sarah and Alex,').",
     marketing:
       "Write a warm marketing email for a tutoring business. Keep it short and concrete.",
     custom:
@@ -90,13 +92,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { contextType, contextId, studentId, tone, extraInstructions } =
+    const { contextType, contextId, studentId, extraResourceIds, extraStudentIds, tone, extraInstructions } =
       parsed.data;
 
     const payload = await loadEmailContext(
       contextType,
       contextId ?? null,
       studentId ?? null,
+      { extraResourceIds: extraResourceIds ?? [], extraStudentIds: extraStudentIds ?? [] },
     );
 
     const system = buildSystemPrompt(contextType, payload.organizationName, tone);
