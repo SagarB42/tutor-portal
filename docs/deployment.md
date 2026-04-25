@@ -16,32 +16,20 @@ assumes Vercel.
    ```
 5. (Optional) Add an email SMTP provider to customise auth emails.
 
-## 2. Resend
-
-1. Add and **verify a sending domain** in the Resend dashboard. Free-mail
-   domains (`gmail.com`, …) are rejected as senders.
-2. Create an API key.
-3. Choose an `EMAIL_FROM` such as
-   `"Tutor Portal <noreply@yourdomain.com>"`.
-4. For local testing without a domain, use `EMAIL_FROM=onboarding@resend.dev`
-   (Resend's sandbox sender — you can only send to verified recipients).
-
-## 3. OpenAI
+## 2. OpenAI
 
 Create an API key with access to `gpt-4o-mini`.
 
-## 4. Vercel
+## 3. Vercel
 
 1. Import the repo.
 2. Set env vars in **Project → Settings → Environment Variables**:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `OPENAI_API_KEY`
-   - `RESEND_API_KEY`
-   - `EMAIL_FROM`
 3. Deploy.
 
-## 5. Post-deploy checklist
+## 4. Post-deploy checklist
 
 - [ ] `/auth/login` reachable, login works.
 - [ ] First sign-in creates an `organizations` row.
@@ -51,7 +39,7 @@ Create an API key with access to `gpt-4o-mini`.
       in real time.
 - [ ] Generating an invoice produces a PDF and attaches it.
 - [ ] Email compose dialog streams a draft.
-- [ ] Email send delivers to the test inbox.
+- [ ] **Open in mail app** opens the OS mail client with the draft pre-filled.
 
 ## Rollback
 

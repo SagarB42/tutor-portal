@@ -5,56 +5,79 @@ Route: `/dashboard/emails`.
 ## Goal
 
 Let the owner compose parent-facing emails (progress updates, invoice
-nudges, cancellation notices, etc.) with AI assistance while keeping the
-owner in the loop before anything is sent.
+nudges, attendance follow-ups, etc.) with AI assistance — then hand off to
+their existing mail client (Gmail / Outlook / Apple Mail) so replies thread
+naturally and deliverability is whatever their personal account already has.
+
+The app does **not** send emails itself. No SMTP relay, no `EMAIL_FROM`, no
+domain to verify.
 
 ## Flow
 
 ```
-[Context loaders] ──▶ [AI draft] ──▶ [User edits] ──▶ [Send via Resend]
-        │                  │              │                │
-        ▼                  ▼              ▼                ▼
-  students/sessions    streamObject    email_drafts     email_drafts
-  balances/invoices    (OpenAI)        (draft)          (sent)
+[Context loaders] ──▶ [AI draft] ──▶ [User edits] ──▶ [Open in mail app]
+        │                  │              │                     │
+        ▼                  ▼              ▼                     ▼
+  students/sessions    streamObject    email_drafts         email_drafts
+  balances/invoices    (OpenAI)        (draft / saved)      (sent — manual)
 ```
 
 ## Context loaders
 
-When the user picks a template (`progress_update`, `invoice_reminder`,
-`attendance_concern`, `custom`) and a student, the server pulls the relevant
-context (recent sessions, balances, open invoices) via functions in
-`src/lib/emails/context.ts` (structure may vary).
+When the user picks a context type (`session_summary`, `invoice_reminder`,
+`attendance_absence`, `prepaid_topup`, `resource_assignment`, `marketing`,
+`custom`) the server pulls the relevant context (recent sessions, balances,
+open invoices) before generation.
 
 ## Draft generation
 
 `POST /api/emails/generate` calls `streamObject` from the Vercel AI SDK
 against `@ai-sdk/openai` (`gpt-4o-mini`). The response is a structured
-`{ subject, body_markdown }` object. The client renders the stream into the
-compose dialog
+`{ subject, body }` object. The client renders the stream into the compose
+dialog
 ([`compose-dialog.tsx`](../../src/app/dashboard/emails/_components/compose-dialog.tsx)).
 
 ## Drafts table
 
 `email_drafts`:
 
-- `status`: `draft | queued | sent | failed`.
-- `template`, `subject`, `body_markdown`, `body_html`, `to`, `cc`, `bcc`.
-- `sent_at`, `sent_message_id` populated by the send path.
+- `status`: `draft | sent | discarded`.
+- `context_type`, `subject`, `body`, `to_email`, `student_id`, `context_id`.
+- `sent_at` populated when the user marks the draft as sent (manually, or
+  automatically when they hit **Open in mail app**).
 
-## Sending
+## Hand-off to mail client
 
-`POST /api/emails/send` validates the draft, converts markdown to HTML via
-a small renderer, then calls the Resend SDK. The response is persisted
-back onto the `email_drafts` row.
+The compose dialog offers four actions on a finished draft:
 
-## Notes on `EMAIL_FROM`
+1. **Copy subject** / **Copy body** — clipboard hand-off, no navigation.
+2. **Save draft** — persists to `email_drafts` with `status='draft'`.
+3. **Open in mail app** — builds a `mailto:` URL pre-filled with `to`,
+   `subject`, and `body`, persists the draft, navigates to the URL (the OS
+   opens the user's default mail app), and stamps the draft as `sent`.
 
-Resend rejects free-mail domains (`gmail.com`, `outlook.com`, …) as senders.
-Options:
+### `mailto:` size limit
 
-- **Sandbox**: `EMAIL_FROM=onboarding@resend.dev`.
-- **Production**: verify a domain in the Resend dashboard and use
-  `EMAIL_FROM="Tutor Portal <noreply@yourdomain.com>"`.
+Most mail clients accept a `mailto:` URL up to ~2000 characters. If the
+encoded body would exceed that, the dialog falls back to opening
+`mailto:to?subject=...` with no body and copies the body to the clipboard
+so the user can paste it in. The user gets a toast explaining what happened.
 
-`src/lib/env.ts` accepts the `"Display Name <addr>"` shape via
-`z.string().min(1).optional()`.
+## Marking a draft sent later
+
+`DraftRowActions` on the emails list page shows **Mark sent** and
+**Discard** buttons. **Mark sent** calls `markDraftSentAction` which sets
+`status='sent'` + `sent_at=now()`.
+
+## Why no SMTP
+
+For a single-owner admin tool, sending from a verified domain via Resend /
+SES adds:
+
+- domain verification friction,
+- per-recipient sandbox restrictions,
+- a deliverability story to maintain,
+- another env var (`EMAIL_FROM`) and another API key (`RESEND_API_KEY`).
+
+Owners already have a working personal mail account. The mailto hand-off
+keeps history (recipients, threads, replies) where the owner expects it.

@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   createEmailDraft,
   discardEmailDraft,
+  markEmailSent,
   updateEmailDraft,
   type CreateEmailDraftInput,
 } from "@/lib/queries/emails";
@@ -59,5 +60,13 @@ export async function discardDraftAction(id: string) {
     throw new Error("Invalid draft id");
   }
   await discardEmailDraft(id);
+  revalidatePath("/dashboard/emails");
+}
+
+export async function markDraftSentAction(id: string) {
+  if (!z.string().uuid().safeParse(id).success) {
+    throw new Error("Invalid draft id");
+  }
+  await markEmailSent(id);
   revalidatePath("/dashboard/emails");
 }

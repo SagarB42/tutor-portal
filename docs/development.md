@@ -19,13 +19,14 @@ Copy-Item .env.example .env.local   # if .env.example is present
 
 See [`src/lib/env.ts`](../src/lib/env.ts). Required:
 
-| Key                             | Scope   | Notes                                                  |
-| ------------------------------- | ------- | ------------------------------------------------------ |
-| `NEXT_PUBLIC_SUPABASE_URL`      | public  | Supabase project URL.                                  |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public  | anon key (safe to expose).                             |
-| `OPENAI_API_KEY`                | server  | Required for AI email drafting.                        |
-| `RESEND_API_KEY`                | server  | Required for sending emails.                           |
-| `EMAIL_FROM`                    | server  | Verified Resend sender; supports `"Name <addr>"` form. |
+| Key                             | Scope   | Notes                                       |
+| ------------------------------- | ------- | ------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | public  | Supabase project URL.                       |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public  | anon key (safe to expose).                  |
+| `OPENAI_API_KEY`                | server  | Required for AI email drafting.             |
+
+There is no SMTP / sender configuration. Emails are handed off to the
+owner's mail client via `mailto:` — see [features/emails.md](features/emails.md).
 
 ## Scripts
 

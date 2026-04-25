@@ -133,17 +133,3 @@ export async function markEmailSent(id: string): Promise<void> {
     .eq("organization_id", organizationId);
   if (error) throw error;
 }
-
-export async function markEmailFailed(id: string, message: string): Promise<void> {
-  const { supabase, organizationId } = await requireOrg();
-  const { error } = await supabase
-    .from("email_drafts")
-    .update({
-      status: "failed",
-      error: message,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("organization_id", organizationId);
-  if (error) throw error;
-}

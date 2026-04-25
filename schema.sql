@@ -1140,3 +1140,4 @@ GRANT EXECUTE ON FUNCTION public.sweep_overdue_invoices() TO authenticated;
 
 
 
+-- ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, Send, Sparkles, Save, X } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Mail, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { saveDraftAction, updateDraftAction } from "@/lib/actions/emails";
+import { saveDraftAction, updateDraftAction, markDraftSentAction } from "@/lib/actions/emails";
 import type { EmailDraftContext } from "@/lib/db-types";
 
 export type ComposeDialogProps = {
@@ -75,7 +75,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
   const [draftId, setDraftId] = React.useState<string | null>(null);
   const [generating, setGenerating] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [sending, setSending] = React.useState(false);
+  const [opening, setOpening] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   // Reset when opened fresh
@@ -152,75 +152,100 @@ export function ComposeDialog(props: ComposeDialogProps) {
   const canSave = toEmail.trim() && subject.trim() && body.trim();
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave) return null;
     setSaving(true);
     setError(null);
     try {
       if (draftId) {
         await updateDraftAction({ id: draftId, toEmail, subject, body });
-      } else {
-        const row = await saveDraftAction({
-          contextType,
-          contextId: contextId ?? null,
-          studentId: studentId ?? null,
-          toEmail,
-          subject,
-          body,
-        });
-        setDraftId(row.id);
+        toast.success("Draft saved");
+        return draftId;
       }
+      const row = await saveDraftAction({
+        contextType,
+        contextId: contextId ?? null,
+        studentId: studentId ?? null,
+        toEmail,
+        subject,
+        body,
+      });
+      setDraftId(row.id);
       toast.success("Draft saved");
-      return true;
+      return row.id;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Save failed";
       setError(message);
       toast.error(message);
-      return false;
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSend = async () => {
-    if (!canSave) return;
-    setSending(true);
-    setError(null);
+  const handleCopyBody = async () => {
     try {
-      // Ensure we have a draftId first
-      let id = draftId;
-      if (!id) {
-        const row = await saveDraftAction({
-          contextType,
-          contextId: contextId ?? null,
-          studentId: studentId ?? null,
-          toEmail,
-          subject,
-          body,
-        });
-        id = row.id;
-        setDraftId(id);
-      }
-      const res = await fetch("/api/emails/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draftId: id, toEmail, subject, body }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        throw new Error(json.error || `HTTP ${res.status}`);
-      }
-      toast.success("Email sent");
-      onOpenChange(false);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Send failed";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setSending(false);
+      await navigator.clipboard.writeText(body);
+      toast.success("Body copied");
+    } catch {
+      toast.error("Couldn't copy — your browser blocked clipboard access");
     }
   };
 
-  const busy = generating || saving || sending;
+  const handleCopySubject = async () => {
+    try {
+      await navigator.clipboard.writeText(subject);
+      toast.success("Subject copied");
+    } catch {
+      toast.error("Couldn't copy — your browser blocked clipboard access");
+    }
+  };
+
+  const handleOpenInMail = async () => {
+    if (!canSave) return;
+    setOpening(true);
+    setError(null);
+    try {
+      // Persist before handing off — opening a mailto link can navigate away
+      // depending on the OS handler.
+      const id = await handleSave();
+      // mailto URLs are limited to ~2000 chars on most clients. For long
+      // bodies we silently truncate the URL and rely on the copy action.
+      const params = new URLSearchParams();
+      if (subject) params.set("subject", subject);
+      if (body) params.set("body", body);
+      const url = `mailto:${encodeURIComponent(toEmail)}?${params.toString()}`;
+      const truncated = url.length > 1900;
+      const finalUrl = truncated
+        ? `mailto:${encodeURIComponent(toEmail)}?${new URLSearchParams({
+            subject,
+          }).toString()}`
+        : url;
+      window.location.href = finalUrl;
+      if (truncated) {
+        await navigator.clipboard.writeText(body).catch(() => {});
+        toast.message("Body too long for mailto", {
+          description: "Body was copied to clipboard — paste it into the message.",
+        });
+      }
+      if (id) {
+        // Best-effort: stamp as sent so it leaves the drafts queue.
+        try {
+          await markDraftSentAction(id);
+        } catch {
+          // Non-fatal — user can mark it sent from the list.
+        }
+      }
+      onOpenChange(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Couldn't open mail app";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  const busy = generating || saving || opening;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -230,7 +255,8 @@ export function ComposeDialog(props: ComposeDialogProps) {
             <Sparkles className="h-5 w-5 text-primary" /> Compose email
           </DialogTitle>
           <DialogDescription>
-            Use AI to draft an email, edit it, then save or send via Resend.
+            Use AI to draft an email, then open it in your mail app or copy
+            the body to paste anywhere.
           </DialogDescription>
         </DialogHeader>
 
@@ -357,7 +383,27 @@ export function ComposeDialog(props: ComposeDialogProps) {
           >
             <X className="mr-2 h-4 w-4" /> Cancel
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCopySubject}
+              disabled={!subject.trim() || busy}
+              title="Copy subject"
+            >
+              <Copy className="mr-2 h-4 w-4" /> Subject
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyBody}
+              disabled={!body.trim() || busy}
+              title="Copy body"
+            >
+              <Copy className="mr-2 h-4 w-4" /> Body
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -373,15 +419,16 @@ export function ComposeDialog(props: ComposeDialogProps) {
             </Button>
             <Button
               type="button"
-              onClick={handleSend}
+              onClick={handleOpenInMail}
               disabled={!canSave || busy}
             >
-              {sending ? (
+              {opening ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Send className="mr-2 h-4 w-4" />
+                <Mail className="mr-2 h-4 w-4" />
               )}
-              Send now
+              Open in mail app
+              <ExternalLink className="ml-2 h-3.5 w-3.5 opacity-60" />
             </Button>
           </div>
         </DialogFooter>
