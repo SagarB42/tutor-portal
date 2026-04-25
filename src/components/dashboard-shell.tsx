@@ -197,6 +197,18 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
               <span>Ask AI</span>
             </Button>
 
+            {/* Mobile: icon-only Ask AI button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 sm:hidden"
+              onClick={openAskPanel}
+              title="Ask AI"
+              aria-label="Ask AI"
+            >
+              <Sparkles className="h-4 w-4 text-primary" />
+            </Button>
+
             {userId && notifications && (
               <NotificationBell
                 userId={userId}
