@@ -13,7 +13,10 @@ export type EmailPromptPayload = {
   studentId: string | null;
 };
 
-async function loadSessionSummary(contextId: string): Promise<EmailPromptPayload> {
+async function loadSessionSummary(
+  contextId: string,
+  studentId: string | null,
+): Promise<EmailPromptPayload> {
   const { supabase, organizationId, organizationName } = await requireOrg();
   const { data, error } = await supabase
     .from("sessions")
@@ -52,7 +55,13 @@ async function loadSessionSummary(contextId: string): Promise<EmailPromptPayload
     attendance: AttendanceJoin[] | null;
   };
 
-  const firstStudent = s.session_students?.[0]?.students ?? null;
+  const allStudents = (s.session_students ?? [])
+    .map((ss) => ss.students)
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const selectedStudent =
+    (studentId && allStudents.find((st) => st.id === studentId)) ||
+    allStudents[0] ||
+    null;
   const attendanceLines = (s.attendance ?? [])
     .map((a) => `- ${a.students?.full_name ?? "Student"}: ${a.status}${a.notes ? ` (${a.notes})` : ""}`)
     .join("\n");
@@ -60,15 +69,15 @@ async function loadSessionSummary(contextId: string): Promise<EmailPromptPayload
   return {
     title: `Session summary: ${s.topic ?? "Tutoring session"}`,
     organizationName,
-    recipient: firstStudent
+    recipient: selectedStudent
       ? {
-          name: firstStudent.parent_name ?? firstStudent.full_name,
-          email: firstStudent.parent_email ?? firstStudent.email,
+          name: selectedStudent.parent_name ?? selectedStudent.full_name,
+          email: selectedStudent.parent_email ?? selectedStudent.email,
         }
       : null,
-    studentId: firstStudent?.id ?? null,
+    studentId: selectedStudent?.id ?? null,
     facts: {
-      student: firstStudent?.full_name ?? null,
+      student: selectedStudent?.full_name ?? null,
       topic: s.topic ?? null,
       date: new Date(s.start_time).toLocaleString(undefined, {
         dateStyle: "full",
@@ -305,7 +314,7 @@ export async function loadEmailContext(
   switch (contextType) {
     case "session_summary":
       if (!contextId) throw new Error("Session id required");
-      return loadSessionSummary(contextId);
+      return loadSessionSummary(contextId, studentId);
     case "invoice_reminder":
       if (!contextId) throw new Error("Invoice id required");
       return loadInvoiceReminder(contextId);

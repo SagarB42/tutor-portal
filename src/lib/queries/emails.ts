@@ -123,13 +123,89 @@ export async function discardEmailDraft(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function markEmailSent(id: string): Promise<void> {
+export async function markEmailSent(
+  id: string,
+  meta?: {
+    provider?: string | null;
+    providerMessageId?: string | null;
+    fromEmail?: string | null;
+    ccEmails?: string[] | null;
+  },
+): Promise<void> {
+  const { supabase, organizationId } = await requireOrg();
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    status: "sent",
+    sent_at: now,
+    updated_at: now,
+    error: null,
+  };
+  if (meta?.provider !== undefined) patch.provider = meta.provider;
+  if (meta?.providerMessageId !== undefined) patch.provider_message_id = meta.providerMessageId;
+  if (meta?.fromEmail !== undefined) patch.from_email = meta.fromEmail;
+  if (meta?.ccEmails !== undefined) patch.cc_emails = meta.ccEmails;
+  const { error } = await supabase
+    .from("email_drafts")
+    .update(patch)
+    .eq("id", id)
+    .eq("organization_id", organizationId);
+  if (error) throw error;
+}
+
+export async function markEmailFailed(id: string, message: string): Promise<void> {
   const { supabase, organizationId } = await requireOrg();
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("email_drafts")
-    .update({ status: "sent", sent_at: now, updated_at: now, error: null })
+    .update({ status: "failed", error: message, updated_at: now })
     .eq("id", id)
     .eq("organization_id", organizationId);
   if (error) throw error;
+}
+
+export type OrgEmailConfigRow = {
+  id: string;
+  name: string;
+  business_name: string | null;
+  reply_to_email: string | null;
+  sender_domain: string | null;
+  sender_from_email: string | null;
+  sender_domain_status: "pending" | "verified" | "failed" | null;
+};
+
+export async function getOrgEmailConfig(): Promise<OrgEmailConfigRow> {
+  const { supabase, organizationId } = await requireOrg();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select(
+      "id, name, business_name, reply_to_email, sender_domain, sender_from_email, sender_domain_status",
+    )
+    .eq("id", organizationId)
+    .single();
+  if (error) throw error;
+  return data as unknown as OrgEmailConfigRow;
+}
+
+export type UpdateOrgEmailConfigInput = {
+  businessName?: string | null;
+  replyToEmail?: string | null;
+};
+
+export async function updateOrgEmailConfig(
+  input: UpdateOrgEmailConfigInput,
+): Promise<OrgEmailConfigRow> {
+  const { supabase, organizationId } = await requireOrg();
+  const patch: Record<string, unknown> = {};
+  if (input.businessName !== undefined) patch.business_name = input.businessName;
+  if (input.replyToEmail !== undefined) patch.reply_to_email = input.replyToEmail;
+  const { data, error } = await supabase
+    .from("organizations")
+    .update(patch)
+    .eq("id", organizationId)
+    .select(
+      "id, name, business_name, reply_to_email, sender_domain, sender_from_email, sender_domain_status",
+    )
+    .single();
+  if (error) throw error;
+  return data as unknown as OrgEmailConfigRow;
 }

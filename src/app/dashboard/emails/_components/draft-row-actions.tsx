@@ -46,14 +46,15 @@ export function DraftRowActions({ draftId, status }: Props) {
           start(async () => {
             try {
               await discardDraftAction(draftId);
-              toast.success("Draft discarded");
+              toast.success("Draft deleted");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Failed");
             }
           })
         }
+        title="Delete draft"
       >
-        <Trash2 className="mr-1 h-3.5 w-3.5" /> Discard
+        <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
       </Button>
     </div>
   );

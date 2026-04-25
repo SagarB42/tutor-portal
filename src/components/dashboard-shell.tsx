@@ -12,6 +12,7 @@ import {
   Mail,
   Menu,
   Search,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -46,6 +47,7 @@ const navItems = [
   { href: "/dashboard/finance", label: "Finance", icon: DollarSign },
   { href: "/dashboard/resources", label: "Resources", icon: BookOpen },
   { href: "/dashboard/emails", label: "Emails", icon: Mail },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 type Props = {

@@ -18,6 +18,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Email sender config (added in Phase 8.1 — Resend integration).
+-- Until a custom domain is verified the app sends from a shared sandbox
+-- address with the org's `business_name` as the display name and `reply_to_email`
+-- so parents' replies land in the tutor's real inbox.
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS business_name text,
+  ADD COLUMN IF NOT EXISTS reply_to_email text,
+  ADD COLUMN IF NOT EXISTS sender_domain text,
+  ADD COLUMN IF NOT EXISTS sender_from_email text,
+  ADD COLUMN IF NOT EXISTS sender_domain_status text
+    CHECK (sender_domain_status IN ('pending','verified','failed'));
+
 -- 2. Students
 CREATE TABLE IF NOT EXISTS public.students (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -913,6 +925,13 @@ CREATE INDEX IF NOT EXISTS email_drafts_org_idx
   ON public.email_drafts (organization_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS email_drafts_context_idx
   ON public.email_drafts (context_type, context_id);
+
+-- Send-tracking columns (Resend integration).
+ALTER TABLE public.email_drafts
+  ADD COLUMN IF NOT EXISTS cc_emails text[],
+  ADD COLUMN IF NOT EXISTS provider text,
+  ADD COLUMN IF NOT EXISTS provider_message_id text,
+  ADD COLUMN IF NOT EXISTS from_email text;
 
 ALTER TABLE public.email_drafts ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN

@@ -21,9 +21,8 @@ import { DraftRowActions } from "./_components/draft-row-actions";
 
 export const dynamic = "force-dynamic";
 
-const statusVariant: Record<
-  EmailDraftStatus,
-  { label: string; className: string }
+const statusVariant: Partial<
+  Record<EmailDraftStatus, { label: string; className: string }>
 > = {
   draft: {
     label: "Draft",
@@ -32,14 +31,6 @@ const statusVariant: Record<
   sent: {
     label: "Sent",
     className: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  },
-  failed: {
-    label: "Failed",
-    className: "bg-rose-50 text-rose-700 border-rose-200",
-  },
-  discarded: {
-    label: "Discarded",
-    className: "bg-slate-50 text-slate-600 border-slate-200",
   },
 };
 
@@ -60,12 +51,14 @@ export default async function EmailsPage() {
     countDraftsByStatus(),
   ]);
 
-  const buckets: Record<"all" | EmailDraftStatus, typeof all> = {
-    all,
-    draft: all.filter((d) => d.status === "draft"),
-    sent: all.filter((d) => d.status === "sent"),
-    failed: all.filter((d) => d.status === "failed"),
-    discarded: all.filter((d) => d.status === "discarded"),
+  // Hide discarded and failed drafts from every view — they are noise.
+  const visible = all.filter(
+    (d) => d.status !== "discarded" && d.status !== "failed",
+  );
+  const buckets: Record<"all" | "draft" | "sent", typeof all> = {
+    all: visible,
+    draft: visible.filter((d) => d.status === "draft"),
+    sent: visible.filter((d) => d.status === "sent"),
   };
 
   return (
@@ -104,24 +97,10 @@ export default async function EmailsPage() {
                   {counts.sent}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="failed">
-                Failed{" "}
-                <Badge variant="outline" className="ml-2">
-                  {counts.failed}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="discarded">
-                Discarded{" "}
-                <Badge variant="outline" className="ml-2">
-                  {counts.discarded}
-                </Badge>
-              </TabsTrigger>
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
 
-            {(
-              ["draft", "sent", "failed", "discarded", "all"] as const
-            ).map((key) => {
+            {(["draft", "sent", "all"] as const).map((key) => {
               const rows = buckets[key];
               return (
                 <TabsContent key={key} value={key} className="mt-4">
@@ -134,7 +113,7 @@ export default async function EmailsPage() {
                       {rows.map((d) => {
                         const v =
                           statusVariant[d.status as EmailDraftStatus] ??
-                          statusVariant.draft;
+                          statusVariant.draft!;
                         return (
                           <li
                             key={d.id}
@@ -162,11 +141,6 @@ export default async function EmailsPage() {
                                   ` · re: ${d.students.full_name}`}{" "}
                                 · {format(new Date(d.created_at ?? Date.now()), "d MMM yyyy h:mm a")}
                               </p>
-                              {d.status === "failed" && d.error && (
-                                <p className="mt-1 truncate text-xs text-rose-600">
-                                  {d.error}
-                                </p>
-                              )}
                             </div>
                             <DraftRowActions
                               draftId={d.id}
