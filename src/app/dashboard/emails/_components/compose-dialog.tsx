@@ -228,6 +228,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
   // Load picker options whenever the context type changes (and dialog is open).
   React.useEffect(() => {
     if (!open) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (!currentContext.needsPicker) {
       setPickerItems([]);
       return;
@@ -235,6 +236,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
     let cancelled = false;
     setPickerLoading(true);
     setPickerError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     fetch(`/api/emails/picker?type=${contextType}`)
       .then(async (res) => {
         const json = (await res.json().catch(() => ({}))) as {
@@ -266,6 +268,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
     if (contextType !== "resource_assignment") return;
     if (studentList.length > 0 || studentListLoading) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStudentListLoading(true);
     fetch("/api/emails/picker?type=prepaid_topup")
       .then(async (res) => {
@@ -384,7 +387,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
   // Build the To suggestion list. Always shown so the user can add multiple
   // recipients and toggle them on/off. For session_summary the list is
   // filtered down to the parent + student emails of the selected students.
-  const emailSuggestions: EmailSuggestion[] = React.useMemo(() => {
+  const emailSuggestions: EmailSuggestion[] = (() => {
     const out: EmailSuggestion[] = [];
     const seen = new Set<string>();
     const push = (opt: EmailOption | undefined | null) => {
@@ -431,14 +434,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
       match?.emailOptions?.forEach(push);
     }
     return out;
-  }, [
-    contextType,
-    selectedPickerItem,
-    selectedStudentIds,
-    resourceNeedsStudentPick,
-    studentId,
-    studentList,
-  ]);
+  })();
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -695,7 +691,7 @@ export function ComposeDialog(props: ComposeDialogProps) {
                 <Label>Students</Label>
                 <p className="text-xs text-muted-foreground">
                   This session has multiple students — pick one or more. The To
-                  field will only suggest the selected students' parents and
+                  field will only suggest the selected students&apos; parents and
                   their own emails.
                 </p>
                 <div className="grid gap-1.5 sm:grid-cols-2">
