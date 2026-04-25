@@ -6,6 +6,7 @@ import {
   Calendar,
   CalendarDays,
   DollarSign,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -18,6 +19,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { CommandPalette, openCommandPalette } from "@/components/command-palette";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -68,6 +70,7 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
 
   const currentItem = navItems.find((item) =>
     item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href)
@@ -211,6 +214,9 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
                   )}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+                  <KeyRound className="mr-2 h-4 w-4" /> Change password
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
@@ -233,6 +239,12 @@ export function DashboardShell({ children, userEmail, businessName, userId, noti
           />
         )}
       </div>
+
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+        email={userEmail}
+      />
     </>
   );
 }
