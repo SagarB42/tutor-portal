@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, GraduationCap, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Suspense } from "react";
 import type { InvitationRow } from "@/lib/db-types";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function InviteForm() {
   const searchParams = useSearchParams();
@@ -115,10 +116,13 @@ function InviteForm() {
 
   if (invalid) {
     return (
-      <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50" />
+      <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 bg-background text-foreground">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/40" />
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
         <div className="relative w-full max-w-md">
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-xl border bg-card/90 backdrop-blur-sm">
             <CardContent className="pt-8 pb-8 text-center space-y-3">
               <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
               <p className="font-semibold text-lg">Invalid Invite</p>
@@ -135,12 +139,15 @@ function InviteForm() {
 
   if (success) {
     return (
-      <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50" />
+      <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 bg-background text-foreground">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/40" />
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeToggle />
+        </div>
         <div className="relative w-full max-w-md">
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <Card className="shadow-xl border bg-card/90 backdrop-blur-sm">
             <CardContent className="pt-8 pb-8 text-center space-y-3">
-              <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto" />
+              <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
               <p className="font-semibold text-lg">Account Created!</p>
               <p className="text-sm text-muted-foreground">Your account has been set up. Please log in to get started.</p>
               <Button className="mt-4" onClick={() => router.push("/auth/login")}>
@@ -162,15 +169,19 @@ function InviteForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-blue-100/40 to-transparent rounded-full blur-3xl -translate-y-1/2" />
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 bg-background text-foreground">
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/40" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-3xl -translate-y-1/2" />
+
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
 
       <div className="relative w-full max-w-md animate-slide-up">
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="shadow-xl border bg-card/90 backdrop-blur-sm">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-4 w-14 h-14 bg-gradient-to-br from-blue-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <GraduationCap className="h-7 w-7 text-white" />
+            <div className="mx-auto mb-4 w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25">
+              <GraduationCap className="h-7 w-7 text-primary-foreground" />
             </div>
             <CardTitle className="text-2xl font-bold">Welcome to Tutor Portal</CardTitle>
             <CardDescription className="text-sm">

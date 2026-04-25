@@ -1141,3 +1141,39 @@ GRANT EXECUTE ON FUNCTION public.sweep_overdue_invoices() TO authenticated;
 
 
 -- ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+-- ============================================================
+-- 21. expressions_of_interest — public landing page lead capture
+-- ============================================================
+-- Anonymous visitors submit the EOI form on the marketing landing page.
+-- Platform owner reviews submissions in the Supabase dashboard SQL editor
+-- and manually creates an invitation for approved leads.
+CREATE TABLE IF NOT EXISTS public.expressions_of_interest (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_name text NOT NULL,
+  owner_name text NOT NULL,
+  email text NOT NULL,
+  phone text NOT NULL,
+  message text,
+  status text NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new','contacted','invited','rejected')),
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS expressions_of_interest_created_idx
+  ON public.expressions_of_interest (created_at DESC);
+
+ALTER TABLE public.expressions_of_interest ENABLE ROW LEVEL SECURITY;
+
+-- Anyone (including anonymous visitors) can submit a new EOI.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename='expressions_of_interest' AND policyname='eoi_public_insert'
+  ) THEN
+    CREATE POLICY "eoi_public_insert" ON public.expressions_of_interest
+      FOR INSERT TO anon, authenticated
+      WITH CHECK (true);
+  END IF;
+END $$;
+
+-- No SELECT policy is defined: submissions are private and only readable
+-- via the service role / Supabase SQL editor by the platform operator.

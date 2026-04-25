@@ -181,6 +181,15 @@ export const availabilitySchema = z
         : !!v.student_id && !v.tutor_id,
     { path: ["owner_type"], message: "Owner reference mismatch" },
   );
+
+export const expressionOfInterestSchema = z.object({
+  business_name: nonEmpty,
+  owner_name: nonEmpty,
+  email: z.string().email("Invalid email"),
+  phone: nonEmpty,
+  message: optionalString,
+});
+export type ExpressionOfInterestInput = z.infer<typeof expressionOfInterestSchema>;
 export type AvailabilityInput = z.infer<typeof availabilitySchema>;
 
 // --- Phase 4: Session series (recurring sessions) ----------------

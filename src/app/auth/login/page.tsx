@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, GraduationCap, Mail, Lock } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -48,17 +49,21 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/50 to-violet-50/50" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-to-b from-blue-100/40 to-transparent rounded-full blur-3xl -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-gradient-to-t from-violet-100/30 to-transparent rounded-full blur-3xl translate-y-1/2" />
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden p-4 bg-background text-foreground">
+      {/* Background — uses theme tokens so it adapts to light/dark */}
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/40" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-3xl -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-primary/10 rounded-full blur-3xl translate-y-1/2" />
+
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
 
       <div className="relative w-full max-w-md animate-slide-up">
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="shadow-xl border bg-card/90 backdrop-blur-sm">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-4 w-14 h-14 bg-gradient-to-br from-blue-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25">
-              <GraduationCap className="h-7 w-7 text-white" />
+            <div className="mx-auto mb-4 w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/25">
+              <GraduationCap className="h-7 w-7 text-primary-foreground" />
             </div>
             <CardTitle className="text-2xl font-bold">Tutor Portal</CardTitle>
             <CardDescription className="text-sm">Sign in to manage your tutoring business</CardDescription>
