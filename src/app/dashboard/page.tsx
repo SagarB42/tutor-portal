@@ -82,7 +82,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <Suspense fallback={<ChartSkeleton title="Revenue vs Expenses" />}>
           <RevenueCard fyStart={fyStart} />
         </Suspense>
-        <Suspense fallback={<ChartSkeleton title="Sessions per week" />}>
+        <Suspense fallback={<ChartSkeleton title="Sessions per month" />}>
           <SessionsCard fyStart={fyStart} />
         </Suspense>
       </div>
@@ -209,11 +209,11 @@ async function SessionsCard({ fyStart }: { fyStart: number }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">
-          Sessions per ISO week
+          Sessions per month
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <SessionsChart data={analytics.sessionsPerWeek} />
+        <SessionsChart data={analytics.sessionsPerMonth} />
       </CardContent>
     </Card>
   );

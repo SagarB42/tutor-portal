@@ -11,9 +11,9 @@ export type RevenueByMonthPoint = {
   net: number;
 };
 
-export type SessionsPerWeekPoint = {
-  weekStart: string; // ISO date YYYY-MM-DD (Monday)
-  label: string; // e.g. "W32"
+export type SessionsPerMonthPoint = {
+  month: string; // "Jul", "Aug", ...
+  key: string; // YYYY-MM
   sessions: number;
   hours: number;
 };
@@ -27,7 +27,7 @@ export type StudentGrowthPoint = {
 export type AnalyticsBundle = {
   fyStart: number;
   revenueByMonth: RevenueByMonthPoint[];
-  sessionsPerWeek: SessionsPerWeekPoint[];
+  sessionsPerMonth: SessionsPerMonthPoint[];
   studentGrowth: StudentGrowthPoint[];
   totals: {
     revenue: number;
@@ -60,23 +60,6 @@ function monthKey(d: Date): string {
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// ISO week start (Monday) for a given date.
-function isoWeekStart(d: Date): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = (x.getDay() + 6) % 7; // Mon=0 .. Sun=6
-  x.setDate(x.getDate() - day);
-  return x;
-}
-
-function isoWeekNumber(d: Date): number {
-  const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = (x.getUTCDay() + 6) % 7;
-  x.setUTCDate(x.getUTCDate() - dayNum + 3);
-  const firstThursday = new Date(Date.UTC(x.getUTCFullYear(), 0, 4));
-  const diff = (x.getTime() - firstThursday.getTime()) / 86400000;
-  return 1 + Math.round((diff - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
 }
 
 export async function getAnalytics(fyStart: number): Promise<AnalyticsBundle> {
@@ -177,32 +160,32 @@ export async function getAnalytics(fyStart: number): Promise<AnalyticsBundle> {
   }
   for (const m of months.values()) m.net = m.revenue - m.expenses;
 
-  // Sessions per ISO week.
-  const weekMap = new Map<string, SessionsPerWeekPoint>();
+  // Sessions per month.
+  const sessionMonths = new Map<string, SessionsPerMonthPoint>();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const key = monthKey(d);
+    sessionMonths.set(key, {
+      month: MONTH_LABELS_AU_FY[i],
+      key,
+      sessions: 0,
+      hours: 0,
+    });
+  }
   let totalSessionHours = 0;
   for (const s of sessionsRes.data ?? []) {
     if (s.status === "cancelled_free") continue;
-    const start = new Date(s.start_time);
-    const wk = isoWeekStart(start);
-    const k = isoDate(wk);
+    const sessionStart = new Date(s.start_time);
+    const k = monthKey(sessionStart);
     const hours = getSessionHours(s.start_time, s.end_time);
     totalSessionHours += hours;
-    const bucket = weekMap.get(k);
+    const bucket = sessionMonths.get(k);
     if (bucket) {
       bucket.sessions += 1;
       bucket.hours += hours;
-    } else {
-      weekMap.set(k, {
-        weekStart: k,
-        label: `W${isoWeekNumber(wk)}`,
-        sessions: 1,
-        hours,
-      });
     }
   }
-  const sessionsPerWeek = Array.from(weekMap.values()).sort((a, b) =>
-    a.weekStart < b.weekStart ? -1 : 1,
-  );
+  const sessionsPerMonth = Array.from(sessionMonths.values());
 
   // Active students over time (cumulative, end of month within FY).
   const studentGrowth: StudentGrowthPoint[] = [];
@@ -235,7 +218,7 @@ export async function getAnalytics(fyStart: number): Promise<AnalyticsBundle> {
   return {
     fyStart,
     revenueByMonth: Array.from(months.values()),
-    sessionsPerWeek,
+    sessionsPerMonth,
     studentGrowth,
     totals: {
       revenue: totalRevenue,

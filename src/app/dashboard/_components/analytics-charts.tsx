@@ -16,7 +16,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import type {
   RevenueByMonthPoint,
-  SessionsPerWeekPoint,
+  SessionsPerMonthPoint,
   StudentGrowthPoint,
 } from "@/lib/queries/analytics";
 
@@ -80,8 +80,8 @@ export function RevenueChart({ data }: { data: RevenueByMonthPoint[] }) {
   );
 }
 
-export function SessionsChart({ data }: { data: SessionsPerWeekPoint[] }) {
-  if (!data.length) {
+export function SessionsChart({ data }: { data: SessionsPerMonthPoint[] }) {
+  if (!data.length || !data.some((d) => d.sessions)) {
     return <EmptyChart label="No sessions delivered this FY yet." />;
   }
   return (
@@ -89,7 +89,7 @@ export function SessionsChart({ data }: { data: SessionsPerWeekPoint[] }) {
       <BarChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
-          dataKey="label"
+          dataKey="month"
           tick={axisStyle}
           tickLine={false}
           axisLine={false}
@@ -98,10 +98,6 @@ export function SessionsChart({ data }: { data: SessionsPerWeekPoint[] }) {
         <YAxis tick={axisStyle} tickLine={false} axisLine={false} allowDecimals={false} />
         <Tooltip
           contentStyle={tooltipStyle}
-          labelFormatter={(_, payload) => {
-            const p = payload?.[0]?.payload as SessionsPerWeekPoint | undefined;
-            return p ? `Week of ${p.weekStart}` : "";
-          }}
           formatter={(v, name) => {
             const num = Number(v);
             if (name === "hours") return [`${num.toFixed(1)} h`, "Hours"];

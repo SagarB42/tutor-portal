@@ -112,12 +112,12 @@ const pricingTiers = [
 
 const faqs = [
   {
-    q: "Is it really free right now?",
-    a: "Yes — Tutor Portal is free for invited businesses through the beta. Paid plans only kick in at the start of NSW Term 4 2026, and we'll give you plenty of notice before any change.",
+    q: "Are all features really free right now?",
+    a: "Yes — All features of Tutor Portal are free for invited businesses through the beta. Paid plans only kick in from Tuesday, 13 October 2026 (start of NSW Term 4), and we'll give you plenty of notice before any change.",
   },
   {
     q: "Can I switch plans later?",
-    a: "Absolutely. Upgrade or downgrade anytime from the dashboard — billing is prorated and you keep all your data.",
+    a: "Billing is monthly — upgrade, downgrade or cancel anytime from the dashboard. You keep all your data.",
   },
   {
     q: "Where is my data stored?",
@@ -126,10 +126,6 @@ const faqs = [
   {
     q: "Does the AI assistant see sensitive data like bank details?",
     a: "No. The Ask AI assistant runs read-only queries against your data and is explicitly blocked from selecting BSB, account numbers or TFNs. It can't send emails or change anything by itself.",
-  },
-  {
-    q: "Do AI emails actually send themselves?",
-    a: "Never. Tutor Portal drafts the email and hands it to your normal mail app (Gmail, Outlook, Apple Mail). You read it, tweak it, then hit send.",
   },
   {
     q: "Can I import my existing student list?",
@@ -198,7 +194,7 @@ export default async function HomePage() {
           <div className="flex flex-col justify-center">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
               <Sparkles className="h-3.5 w-3.5" />
-              Free until NSW Term 4, 2026 · invite-only beta
+              Free until 13 Oct 2026 · invite-only beta
             </div>
             <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Run your tutoring business{" "}
@@ -399,7 +395,7 @@ export default async function HomePage() {
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple, honest pricing</h2>
             <p className="mt-4 text-muted-foreground">
               <span className="font-medium text-foreground">Free for everyone in the beta.</span> Paid plans
-              start from the beginning of NSW Term 4, 2026 — we&apos;ll let you know well in advance.
+              start from Tuesday, 13 October 2026 (start of NSW Term 4) — we&apos;ll let you know well in advance.
             </p>
           </div>
 

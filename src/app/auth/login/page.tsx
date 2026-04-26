@@ -21,14 +21,26 @@ function LoginForm() {
 
   const supabase = createClient();
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    // Read straight from the form to handle browser autofill, which doesn't
+    // always trigger React onChange before Enter is pressed.
+    const formData = new FormData(e.currentTarget);
+    const emailValue = String(formData.get("email") ?? email).trim();
+    const passwordValue = String(formData.get("password") ?? password);
+
+    if (!emailValue || !passwordValue) {
+      setError("Please enter your email and password.");
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: emailValue,
+      password: passwordValue,
     });
 
     if (error) {
@@ -77,7 +89,9 @@ function LoginForm() {
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
+                    autoComplete="email"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -100,7 +114,9 @@ function LoginForm() {
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
+                    name="password"
                     type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
