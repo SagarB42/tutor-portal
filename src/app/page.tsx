@@ -129,7 +129,7 @@ const faqs = [
   },
   {
     q: "Can I import my existing student list?",
-    a: "Yes — drop us a CSV and we'll help with the first import during onboarding.",
+    a: "Yes — and it's on us until start of Term 4. Send us your spreadsheet (any format) and we'll do a free white-glove import: students, contacts, rates and any historical notes you want to bring across. Most tutoring businesses are up and running the same day.",
   },
 ];
 
