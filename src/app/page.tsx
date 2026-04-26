@@ -7,8 +7,10 @@ import {
   DollarSign,
   GraduationCap,
   Mail,
+  MessageSquareText,
   Sparkles,
   Users,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -44,13 +46,13 @@ const features = [
   },
   {
     icon: Mail,
-    title: "AI-drafted emails",
-    body: "Compose parent updates and reminders with AI — review, tweak, then hand off to your mail app.",
+    title: "AI-drafted parent emails",
+    body: "One-click drafts for attendance, invoices and resource shares — with the right links and student context already filled in.",
   },
   {
-    icon: Sparkles,
-    title: "Made for solo operators",
-    body: "Built for owner-run tutoring businesses. No bloat, no enterprise upsell, just the tools you need.",
+    icon: MessageSquareText,
+    title: "Ask AI assistant",
+    body: "Ask plain-English questions about revenue, overdue invoices, upcoming sessions, tutor payouts and more — right from the dashboard.",
   },
 ];
 
@@ -61,6 +63,78 @@ const benefits = [
   "AI email drafts that sound like you wrote them",
   "Keyboard-first command palette for power users",
   "Light, dark and system themes",
+];
+
+const pricingTiers = [
+  {
+    name: "Starter",
+    price: "$10",
+    period: "per month",
+    tagline: "For tutors just getting organised.",
+    highlights: [
+      "Up to 15 students",
+      "Up to 3 tutors",
+      "Sessions, attendance & resources",
+      "Payments, expenses & invoices",
+    ],
+    cta: "Request access",
+    featured: false,
+  },
+  {
+    name: "Growth",
+    price: "$20",
+    period: "per month",
+    tagline: "For growing studios with a small team.",
+    highlights: [
+      "Up to 40 students",
+      "Up to 10 tutors",
+      "Calendar view & scheduling",
+      "Everything in Starter",
+    ],
+    cta: "Request access",
+    featured: true,
+  },
+  {
+    name: "AI",
+    price: "$35",
+    period: "per month",
+    tagline: "Unlimited scale with the AI assistant on tap.",
+    highlights: [
+      "Unlimited students & tutors",
+      "Ask AI assistant",
+      "AI-drafted parent emails",
+      "Everything in Growth",
+    ],
+    cta: "Request access",
+    featured: false,
+  },
+];
+
+const faqs = [
+  {
+    q: "Is it really free right now?",
+    a: "Yes — Tutor Portal is free for invited businesses through the beta. Paid plans only kick in at the start of NSW Term 4 2026, and we'll give you plenty of notice before any change.",
+  },
+  {
+    q: "Can I switch plans later?",
+    a: "Absolutely. Upgrade or downgrade anytime from the dashboard — billing is prorated and you keep all your data.",
+  },
+  {
+    q: "Where is my data stored?",
+    a: "In Supabase (Sydney region). Each tutoring business is fully isolated by row-level security, so nobody else can see your students, invoices or notes.",
+  },
+  {
+    q: "Does the AI assistant see sensitive data like bank details?",
+    a: "No. The Ask AI assistant runs read-only queries against your data and is explicitly blocked from selecting BSB, account numbers or TFNs. It can't send emails or change anything by itself.",
+  },
+  {
+    q: "Do AI emails actually send themselves?",
+    a: "Never. Tutor Portal drafts the email and hands it to your normal mail app (Gmail, Outlook, Apple Mail). You read it, tweak it, then hit send.",
+  },
+  {
+    q: "Can I import my existing student list?",
+    a: "Yes — drop us a CSV and we'll help with the first import during onboarding.",
+  },
 ];
 
 export default async function HomePage() {
@@ -83,7 +157,26 @@ export default async function HomePage() {
             </div>
             <span className="text-base font-semibold tracking-tight">Tutor Portal</span>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Link
+              href="#ai"
+              className="hidden text-sm font-medium text-muted-foreground transition hover:text-foreground md:inline-flex"
+            >
+              AI
+            </Link>
+            <Link
+              href="#pricing"
+              className="hidden text-sm font-medium text-muted-foreground transition hover:text-foreground md:inline-flex"
+            >
+              Pricing
+            </Link>
+            <Link
+              href="#faq"
+              className="hidden text-sm font-medium text-muted-foreground transition hover:text-foreground md:inline-flex"
+            >
+              FAQ
+            </Link>
+            <div className="hidden h-5 w-px bg-border md:mx-2 md:block" />
             <ThemeToggle />
             <Button asChild variant="ghost" size="sm">
               <Link href="/auth/login">Log in</Link>
@@ -103,9 +196,9 @@ export default async function HomePage() {
 
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-28">
           <div className="flex flex-col justify-center">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Invite-only beta · early access available
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary backdrop-blur-sm">
+              <Sparkles className="h-3.5 w-3.5" />
+              Free until NSW Term 4, 2026 · invite-only beta
             </div>
             <h1 className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
               Run your tutoring business{" "}
@@ -168,6 +261,98 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* AI Spotlight */}
+      <section id="ai" className="border-t">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
+                New · AI built in
+              </div>
+              <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+                An AI co-pilot that actually knows your business.
+              </h2>
+              <p className="mt-4 text-muted-foreground">
+                Tutor Portal&apos;s AI is grounded in your real data — students, sessions,
+                invoices, resources — so the answers and emails you get are specific, not generic.
+              </p>
+              <ul className="mt-8 space-y-4">
+                <li className="flex gap-3">
+                  <Zap className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Ask anything, get a real answer</p>
+                    <p className="text-sm text-muted-foreground">
+                      &ldquo;How much did we make this month?&rdquo; &middot; &ldquo;Who&apos;s overdue?&rdquo; &middot; &ldquo;What sessions does Priya have next week?&rdquo;
+                    </p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <Mail className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Drafts that sound like you</p>
+                    <p className="text-sm text-muted-foreground">
+                      Attendance follow-ups know if a student was late or absent. Resource shares include the
+                      actual links. Invoice nudges quote the real amount.
+                    </p>
+                  </div>
+                </li>
+                <li className="flex gap-3">
+                  <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Safe by design</p>
+                    <p className="text-sm text-muted-foreground">
+                      Read-only access to your data. Never touches bank details, BSBs or TFNs. Never sends an
+                      email without your final OK.
+                    </p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            {/* Mock preview */}
+            <div className="relative">
+              <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-primary/20 via-purple-500/10 to-transparent blur-2xl" />
+              <div className="relative rounded-2xl border bg-card shadow-xl">
+                <div className="flex items-center gap-2 border-b px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                  </div>
+                  <div className="ml-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    Ask AI
+                  </div>
+                </div>
+                <div className="space-y-4 p-5">
+                  <div className="ml-auto w-fit max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2 text-sm text-primary-foreground">
+                    How much revenue this month and who&apos;s overdue?
+                  </div>
+                  <div className="max-w-[90%] rounded-2xl rounded-tl-sm bg-muted px-4 py-3 text-sm">
+                    <p className="font-medium">This month so far</p>
+                    <ul className="mt-2 space-y-1 text-muted-foreground">
+                      <li>• Revenue: <span className="font-medium text-foreground">$4,820</span></li>
+                      <li>• Expenses: <span className="font-medium text-foreground">$310</span></li>
+                      <li>• Net: <span className="font-medium text-emerald-600 dark:text-emerald-400">+$4,510</span></li>
+                    </ul>
+                    <p className="mt-3 font-medium">Overdue invoices (2)</p>
+                    <ul className="mt-1 space-y-1 text-muted-foreground">
+                      <li>• Sharma family — $240 · 12 days late</li>
+                      <li>• Nguyen family — $180 · 4 days late</li>
+                    </ul>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    Ask anything…
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Benefits */}
       <section className="border-t">
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center">
@@ -203,6 +388,86 @@ export default async function HomePage() {
                 <p className="text-xs text-muted-foreground">For other owner-operators.</p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" className="border-t bg-muted/20">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple, honest pricing</h2>
+            <p className="mt-4 text-muted-foreground">
+              <span className="font-medium text-foreground">Free for everyone in the beta.</span> Paid plans
+              start from the beginning of NSW Term 4, 2026 — we&apos;ll let you know well in advance.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {pricingTiers.map((tier) => (
+              <div
+                key={tier.name}
+                className={
+                  "relative flex flex-col rounded-2xl border bg-card p-6 " +
+                  (tier.featured ? "border-primary shadow-lg ring-1 ring-primary/30" : "")
+                }
+              >
+                {tier.featured && (
+                  <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-0.5 text-xs font-medium text-primary-foreground">
+                    Most popular
+                  </span>
+                )}
+                <p className="text-sm font-medium text-muted-foreground">{tier.name}</p>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="text-4xl font-bold tracking-tight">{tier.price}</span>
+                  <span className="text-sm text-muted-foreground">{tier.period}</span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{tier.tagline}</p>
+                <ul className="mt-6 space-y-2 text-sm">
+                  {tier.highlights.map((h) => (
+                    <li key={h} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <span>{h}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-8 pt-2">
+                  <Button
+                    asChild
+                    variant={tier.featured ? "default" : "outline"}
+                    className="w-full"
+                  >
+                    <Link href="#request-access">{tier.cta}</Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            All prices in AUD. Switch or cancel anytime. No card needed during beta.
+          </p>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="border-t">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions, answered</h2>
+            <p className="mt-4 text-muted-foreground">
+              The things most owner-operators want to know before signing up.
+            </p>
+          </div>
+          <div className="mt-10 divide-y rounded-2xl border bg-card">
+            {faqs.map((f) => (
+              <details key={f.q} className="group p-6 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-base font-medium">
+                  {f.q}
+                  <span className="text-muted-foreground transition group-open:rotate-45 text-xl leading-none">+</span>
+                </summary>
+                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{f.a}</p>
+              </details>
+            ))}
           </div>
         </div>
       </section>
